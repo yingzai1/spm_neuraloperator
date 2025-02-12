@@ -1,0 +1,147 @@
+import numpy as np
+import jax
+import jax.numpy as jnp
+import matplotlib.pyplot as plt
+from scipy.stats import qmc
+
+
+def GaussianRFCurrent(key, value, t_max):
+    # Set up sample points for the field
+    t_samples = np.linspace(0, t_max, 75)
+
+    L = 1.0
+    n = t_samples.shape[0]
+    t_i = t_samples.reshape(-1, 1)
+    t_j = t_samples.reshape(1, -1)
+
+    # Compute periodic distance
+    delta_t = np.pi * (t_i - t_j) / t_max
+    sin_term = np.sin(delta_t)
+
+    # Periodic covariance function
+    cov = np.exp(-2 * (sin_term / L) ** 2)
+
+    # Add small jitter to ensure positive definiteness
+    jitter = 1e-6 * np.eye(n)
+    cov += jitter
+
+    mean = np.zeros(n)
+
+    seed = int(jax.random.randint(key, shape=(), minval=0, maxval=2**31-1))
+    np.random.seed(seed)
+
+    # Generate the Gaussian random field samples at the chosen sample points
+    field = np.random.multivariate_normal(mean, cov)
+
+    # Truncate field values to within [-1.5, 1.5] as per your example
+    field = np.clip(field, -1.5, 1.5)
+
+    def f(t):
+        # Convert input t to a numpy array for interpolation
+        t_np = np.array(t, ndmin=1)  # Ensures we have at least 1D array
+        # Interpolate the field values at the given time points
+        interpolated = np.interp(t_np, t_samples, field) * value
+
+        # If the original t was scalar, return a scalar
+        if np.isscalar(t):
+            return float(interpolated[0])
+        return interpolated
+
+    return f
+
+
+def ConstantCurrent(value):
+
+    def f(t):
+        return jnp.ones_like(t) * value
+    return f
+
+def TriangleCurrent(value):
+
+    def f(t):
+
+        t1 = 900
+        t2 = 1800
+
+        return jnp.where(t <= t1, t / t1, (t2 - t) / t1) * value
+
+    return f
+
+# def func(k, value):
+
+#     def f(t):
+
+#         tmax = t.max()
+
+#         return jnp.tanh(k * (t - tmax/2) / (tmax/2)) * value
+
+#     return f
+
+
+def gen_data(m_inner, m_init, m_bc0, m_bcR, epsilon=1e-6, sort_axis = None, ub_time = 1):
+
+    sampler_res = qmc.Sobol(d=2, scramble=False)
+    sampler_bc = qmc.Sobol(d=1, scramble=False)
+
+    X_inner = sampler_res.random_base2(m=m_inner)
+    X_inner = qmc.scale(X_inner, [epsilon, epsilon], [ub_time-epsilon, 1-epsilon])
+    if sort_axis is not None:
+        indices = np.argsort(X_inner[:, sort_axis])
+        X_inner = X_inner[indices]
+
+    r_initial = sampler_bc.random_base2(m=m_init)
+    t_initial = np.zeros_like(r_initial)
+    X_initial = np.concatenate((t_initial, r_initial), axis=1)
+
+    sampler_bc.reset()
+    t_boundary0 = sampler_bc.random_base2(m=m_bc0)
+    t_boundary0 = qmc.scale(t_boundary0, epsilon, ub_time)
+    r_boundary0 = np.zeros_like(t_boundary0)
+    X_boundary_0 = np.concatenate((t_boundary0, r_boundary0), axis=1)
+    if sort_axis is not None:
+        indices = np.argsort(X_boundary_0[:, sort_axis])
+        X_boundary_0 = X_boundary_0[indices]
+
+    sampler_bc.reset()
+    t_boundaryR = sampler_bc.random_base2(m=m_bcR)
+    t_boundaryR = qmc.scale(t_boundaryR, epsilon, ub_time)
+    r_boundaryR = np.ones_like(t_boundaryR)
+    X_boundary_R = np.concatenate((t_boundaryR, r_boundaryR), axis=1)
+    if sort_axis is not None:
+        indices = np.argsort(X_boundary_R[:, sort_axis])
+        X_boundary_R = X_boundary_R[indices]
+
+    return X_inner, X_initial, X_boundary_0, X_boundary_R
+
+
+def plot_col_points(X_inner, X_initial, X_boundary_0, X_boundary_R):
+
+    # Create the scatter plot
+    plt.figure(figsize=(10, 6))
+    plt.scatter(X_initial[:,0], X_initial[:,1], color='blue', label='Initial Points')
+    plt.scatter(X_inner[:,0], X_inner[:,1], color='green', label='Inner Points')
+    plt.scatter(X_boundary_0[:,0], X_boundary_0[:,1], color='red', label='Boundary 0 Points')
+    plt.scatter(X_boundary_R[:,0], X_boundary_R[:,1], color='purple', label='Boundary R Points')
+
+    # Adding labels and legend
+    plt.xlabel('t-axis Label')  # Update with your specific label
+    plt.ylabel('r-axis Label')  # Update with your specific label
+    plt.title('Collocation Points')  # Optional: add a title if desired
+    plt.legend()
+
+    # Show the plot
+    plt.grid(True)  # Optional: add a grid for easier visualization
+    plt.show()
+
+
+# my_functions.py
+import pybamm
+
+def simulate_single(I_func,t, soc=0.5, params = pybamm.ParameterValues("Chen2020")):
+    spm = pybamm.lithium_ion.SPM()
+    sim = pybamm.Simulation(spm, parameter_values=params)
+    sim.parameter_values["Current function [A]"] = pybamm.Interpolant(t, -1.0 * I_func, pybamm.t)
+    sol = sim.solve(initial_soc=soc, t_eval=t)
+    c0 = sol["Positive particle concentration"].entries[:, 0, 0]
+    cn_target = sol["Negative particle concentration"].entries[:, 0, :]
+    return cn_target, c0
