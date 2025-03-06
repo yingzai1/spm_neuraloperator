@@ -145,3 +145,38 @@ def simulate_single(I_func,t, soc=0.5, params = pybamm.ParameterValues("Chen2020
     c0 = sol["Positive particle concentration"].entries[:, 0, 0]
     cn_target = sol["Negative particle concentration"].entries[:, 0, :]
     return cn_target, c0
+
+
+import os
+import flax.serialization
+from datetime import datetime
+
+def save_model_params(params, directory="./trained_models", prefix = "anode", family = "CC"):
+    """Serialize and save model params with a timestamped filename."""
+    os.makedirs(directory, exist_ok=True)
+    # Create a unique timestamp string, e.g. "2025-03-06_14-20-59"
+    timestamp_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    
+    # Construct filename, e.g. "./checkpoints/model_params_2025-03-06_14-20-59.msgpack"
+    filename = os.path.join(directory, f"{prefix}_{family}_{timestamp_str}.msgpack")
+
+    # Convert params PyTree to a bytes object
+    param_bytes = flax.serialization.to_bytes(params)
+
+    # Write to disk
+    with open(filename, "wb") as f:
+        f.write(param_bytes)
+
+    print(f"Saved model parameters to {filename}")
+    return filename
+
+def load_model_params(filename):
+    # Read the saved bytes
+    with open(filename, "rb") as f:
+        param_bytes = f.read()
+
+    return param_bytes
+
+# Usage:
+# model = FNO(...)  # or whatever your model class
+# params = load_model_params(model, "./checkpoints/model_params_2025-03-06_14-20-59.msgpack")
