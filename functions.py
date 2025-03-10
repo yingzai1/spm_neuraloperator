@@ -180,3 +180,34 @@ def load_model_params(filename):
 # Usage:
 # model = FNO(...)  # or whatever your model class
 # params = load_model_params(model, "./checkpoints/model_params_2025-03-06_14-20-59.msgpack")
+
+
+def post_proc(params, I_c, c_pred_an, c_true_an, c_pred_ca, c_true_ca, Ran, Rca, epsan, epsca, Lan, Lca, A):
+    #params = pybamm.ParameterValues("Ecker2015") #OKane und Chen teilen sich SPM params
+    U_OCP_an = params["Negative electrode OCP [V]"]
+    U_OCP_ca = params["Positive electrode OCP [V]"]
+    R = params['Ideal gas constant [J.K-1.mol-1]']
+    F = params['Faraday constant [C.mol-1]']
+    T = params["Ambient temperature [K]"]
+
+    def in_arcsinh(I, R, epsilon, L, A):
+
+        x = I * R / (3 * epsilon * L * A)
+
+        return x
+    
+    sim_length = c_true_an.shape[0]
+
+    j_pred_an = c_pred_an**0.5 * (1-c_pred_an)**0.5
+    j_true_an = c_true_an**0.5 * (1-c_true_an)**0.5
+
+    j_pred_ca = c_pred_ca**0.5 * (1-c_pred_ca)**0.5
+    j_true_ca = c_true_ca**0.5 * (1-c_true_ca)**0.5
+
+    xan = in_arcsinh(-I_c, Ran, epsan, Lan, A)
+    xca = in_arcsinh(-I_c, Rca, epsca, Lca, A)
+
+    V_pred = U_OCP_ca(c_pred_ca) - U_OCP_an(c_pred_an) - 2 * R*T/F * jnp.arcsinh(0.5*xan/(j_pred_an)) - 2 * R*T/F * jnp.arcsinh(0.5*xca/(j_pred_ca))
+    V_true = U_OCP_ca(c_true_ca) - U_OCP_an(c_true_an) - 2 * R*T/F * jnp.arcsinh(0.5*xan[:sim_length]/(j_true_an)) - 2 * R*T/F * jnp.arcsinh(0.5*xca[:sim_length]/(j_true_ca))
+
+    return V_pred, V_true
