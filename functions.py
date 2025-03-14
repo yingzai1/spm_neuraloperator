@@ -4,11 +4,20 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 from scipy.stats import qmc
 
-
-def GaussianRFCurrent(key, value, t_max):
+def GaussianRFCurrent(seed, value, t_max):
+    """
+    Generates a Gaussian random field current function.
+    
+    Parameters:
+      seed  : integer seed for reproducibility
+      value : scaling factor for the current
+      t_max : maximum time value
+    
+    Returns:
+      A function f(t) that interpolates the generated field.
+    """
     # Set up sample points for the field
     t_samples = np.linspace(0, t_max, 75)
-
     L = 1.0
     n = t_samples.shape[0]
     t_i = t_samples.reshape(-1, 1)
@@ -26,46 +35,101 @@ def GaussianRFCurrent(key, value, t_max):
     cov += jitter
 
     mean = np.zeros(n)
-
-    seed = int(jax.random.randint(key, shape=(), minval=0, maxval=2**31-1))
+    
+    # Use NumPy's random generator
     np.random.seed(seed)
-
-    # Generate the Gaussian random field samples at the chosen sample points
     field = np.random.multivariate_normal(mean, cov)
-
-    # Truncate field values to within [-1.5, 1.5] as per your example
+    
+    # Truncate field values to within [-1.5, 1.5]
     field = np.clip(field, -1.5, 1.5)
-
+    
     def f(t):
-        # Convert input t to a numpy array for interpolation
-        t_np = np.array(t, ndmin=1)  # Ensures we have at least 1D array
-        # Interpolate the field values at the given time points
+        t_np = np.array(t, ndmin=1)
         interpolated = np.interp(t_np, t_samples, field) * value
-
-        # If the original t was scalar, return a scalar
         if np.isscalar(t):
             return float(interpolated[0])
         return interpolated
 
     return f
 
+# -------------------------------
+# Other Current Functions (using NumPy)
+# -------------------------------
 
 def ConstantCurrent(value):
-
     def f(t):
-        return jnp.ones_like(t) * value
+        return np.ones_like(t) * value
     return f
 
 def TriangleCurrent(value):
-
     def f(t):
-
         t1 = 900
         t2 = 1800
-
-        return jnp.where(t <= t1, t / t1, (t2 - t) / t1) * value
-
+        return np.where(t <= t1, t / t1, (t2 - t) / t1) * value
     return f
+
+
+# def GaussianRFCurrent(key, value, t_max):
+#     # Set up sample points for the field
+#     t_samples = np.linspace(0, t_max, 75)
+
+#     L = 1.0
+#     n = t_samples.shape[0]
+#     t_i = t_samples.reshape(-1, 1)
+#     t_j = t_samples.reshape(1, -1)
+
+#     # Compute periodic distance
+#     delta_t = np.pi * (t_i - t_j) / t_max
+#     sin_term = np.sin(delta_t)
+
+#     # Periodic covariance function
+#     cov = np.exp(-2 * (sin_term / L) ** 2)
+
+#     # Add small jitter to ensure positive definiteness
+#     jitter = 1e-6 * np.eye(n)
+#     cov += jitter
+
+#     mean = np.zeros(n)
+
+#     seed = int(jax.random.randint(key, shape=(), minval=0, maxval=2**31-1))
+#     np.random.seed(seed)
+
+#     # Generate the Gaussian random field samples at the chosen sample points
+#     field = np.random.multivariate_normal(mean, cov)
+
+#     # Truncate field values to within [-1.5, 1.5] as per your example
+#     field = np.clip(field, -1.5, 1.5)
+
+#     def f(t):
+#         # Convert input t to a numpy array for interpolation
+#         t_np = np.array(t, ndmin=1)  # Ensures we have at least 1D array
+#         # Interpolate the field values at the given time points
+#         interpolated = np.interp(t_np, t_samples, field) * value
+
+#         # If the original t was scalar, return a scalar
+#         if np.isscalar(t):
+#             return float(interpolated[0])
+#         return interpolated
+
+#     return f
+
+
+# def ConstantCurrent(value):
+
+#     def f(t):
+#         return jnp.ones_like(t) * value
+#     return f
+
+# def TriangleCurrent(value):
+
+#     def f(t):
+
+#         t1 = 900
+#         t2 = 1800
+
+#         return jnp.where(t <= t1, t / t1, (t2 - t) / t1) * value
+
+#     return f
 
 # def func(k, value):
 
@@ -196,7 +260,7 @@ def post_proc(params, I_c, c_pred_an, c_true_an, c_pred_ca, c_true_ca, Ran, Rca,
 
         return x
     
-    sim_length = c_true_an.shape[0]
+    #sim_length = c_true_an.shape[0]
 
     j_pred_an = c_pred_an**0.5 * (1-c_pred_an)**0.5
     j_true_an = c_true_an**0.5 * (1-c_true_an)**0.5
@@ -208,6 +272,47 @@ def post_proc(params, I_c, c_pred_an, c_true_an, c_pred_ca, c_true_ca, Ran, Rca,
     xca = in_arcsinh(-I_c, Rca, epsca, Lca, A)
 
     V_pred = U_OCP_ca(c_pred_ca) - U_OCP_an(c_pred_an) - 2 * R*T/F * jnp.arcsinh(0.5*xan/(j_pred_an)) - 2 * R*T/F * jnp.arcsinh(0.5*xca/(j_pred_ca))
-    V_true = U_OCP_ca(c_true_ca) - U_OCP_an(c_true_an) - 2 * R*T/F * jnp.arcsinh(0.5*xan[:sim_length]/(j_true_an)) - 2 * R*T/F * jnp.arcsinh(0.5*xca[:sim_length]/(j_true_ca))
+    V_true = U_OCP_ca(c_true_ca) - U_OCP_an(c_true_an) - 2 * R*T/F * jnp.arcsinh(0.5*xan/(j_true_an)) - 2 * R*T/F * jnp.arcsinh(0.5*xca/(j_true_ca))
+
+    return V_pred, V_true
+
+def post_proc2(params, I_c, c_pred_an, c_true_an, c_pred_ca, c_true_ca, Ran, Rca, epsan, epsca, Lan, Lca, A):
+    #params = pybamm.ParameterValues("Ecker2015") #OKane und Chen teilen sich SPM params
+    U_OCP_an = params["Negative electrode OCP [V]"]
+    U_OCP_ca = params["Positive electrode OCP [V]"]
+    R = params['Ideal gas constant [J.K-1.mol-1]']
+    F = params['Faraday constant [C.mol-1]']
+    T = params["Ambient temperature [K]"]
+
+    # k_an = params["Negative electrode reaction rate constant [m.s-1]"]
+    # k_ca = params["Positive electrode reaction rate constant [m.s-1]"]
+
+    m_an = 6.48e-7
+    m_ca  = 3.42e-6
+    c_e = 1000
+
+    def in_arcsinh(I, Ri, epsilon, L, A):
+
+        x = I * Ri / (3 * epsilon * L * A)
+
+        return x
+    
+    #sim_length = c_true_an.shape[0]
+
+    c_an_max = params["Maximum concentration in negative electrode [mol.m-3]"]
+    c_ca_max = params["Maximum concentration in positive electrode [mol.m-3]"]
+    c_e = 1000
+
+    j_pred_an = m_an * jnp.sqrt(c_pred_an * (1-c_pred_an))/jnp.sqrt(c_an_max) * jnp.sqrt(c_e)
+    j_true_an = m_an * jnp.sqrt(c_true_an * (1-c_true_an))/jnp.sqrt(c_an_max) * jnp.sqrt(c_e)
+
+    j_pred_ca = m_ca * jnp.sqrt(c_pred_ca * (1-c_pred_ca))/jnp.sqrt(c_ca_max) * jnp.sqrt(c_e)
+    j_true_ca = m_ca * jnp.sqrt(c_true_ca * (1-c_true_ca))/jnp.sqrt(c_ca_max) * jnp.sqrt(c_e)
+
+    xan = in_arcsinh(-I_c, Ran, epsan, Lan, A)
+    xca = in_arcsinh(-I_c, Rca, epsca, Lca, A)
+
+    V_pred = U_OCP_ca(c_pred_ca) - U_OCP_an(c_pred_an) - 2 * R*T/F * jnp.arcsinh(0.5*xan/(j_pred_an)) - 2 * R*T/F * jnp.arcsinh(0.5*xca/(j_pred_ca))
+    V_true = U_OCP_ca(c_true_ca) - U_OCP_an(c_true_an) - 2 * R*T/F * jnp.arcsinh(0.5*xan/(j_true_an)) - 2 * R*T/F * jnp.arcsinh(0.5*xca/(j_true_ca))
 
     return V_pred, V_true
