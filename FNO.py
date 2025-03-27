@@ -89,27 +89,29 @@ class FNO(nn.Module):
     input_channels: int = 4
     hidden_channels: int = 32  # channel size, can be set to 2 or 4
     output_channels: int = 1
-    param_channels: int = 32
+    param_channels: int = 0
 
     @nn.compact
     def __call__(self, x):
         # x: (batch, H, W, input_channels)
         # Lifting layer: map input to hidden channels
-        d = x[...,-1:]
-        x = x[...,:-1]
-        # Suppose the scalar is repeated in space. Take the mean:
-        d_scalar = jnp.mean(d, axis=(1,2))    # shape (batch, 1)
+        if self.param_channels != 0:
+            d = x[...,-1:]
+            x = x[...,:-1]
+            # Suppose the scalar is repeated in space. Take the mean:
+            d_scalar = jnp.mean(d, axis=(1,2))    # shape (batch, 1)
 
-        # Pass through an MLP
-        d_emb = nn.Dense(32)(d_scalar)       # shape (batch, 32)
-        d_emb = nn.relu(d_emb)
-        d_emb = nn.Dense(self.hidden_channels)(d_emb) # shape (batch, hidden_channels)
+            # Pass through an MLP
+            d_emb = nn.Dense(self.param_channels)(d_scalar)       # shape (batch, 32)
+            d_emb = nn.relu(d_emb)
+            d_emb = nn.Dense(self.param_channels)(d_emb) # shape (batch, hidden_channels)
+            d_emb = nn.relu(d_emb)
 
-         # Broadcast to match (H, W)
-        d_emb = d_emb[:, None, None, :]  # now (batch, 1, 1, hidden_channels)
-        d_emb = jnp.tile(d_emb, (1, x.shape[1], x.shape[2], 1))  # (batch, H, W, hidden_channels)
-        
-        x = jnp.concatenate((x,d), axis =-1)
+            # Broadcast to match (H, W)
+            d_emb = d_emb[:, None, None, :]  # now (batch, 1, 1, hidden_channels)
+            d_emb = jnp.tile(d_emb, (1, x.shape[1], x.shape[2], 1))  # (batch, H, W, hidden_channels)
+            
+            x = jnp.concatenate((x,d), axis =-1)
 
         x = nn.Dense(self.hidden_channels)(x)
 
