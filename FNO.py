@@ -89,29 +89,28 @@ class FNO(nn.Module):
     input_channels: int = 4
     hidden_channels: int = 32  # channel size, can be set to 2 or 4
     output_channels: int = 1
-    param_channels: int = 0
 
     @nn.compact
     def __call__(self, x):
         # x: (batch, H, W, input_channels)
         # Lifting layer: map input to hidden channels
-        if self.param_channels != 0:
-            d = x[...,-1:]
-            x = x[...,:-1]
-            # Suppose the scalar is repeated in space. Take the mean:
-            d_scalar = jnp.mean(d, axis=(1,2))    # shape (batch, 1)
+        # if self.param_channels != 0:
+        #     d = x[...,-1:]
+        #     x = x[...,:-1]
+        #     # Suppose the scalar is repeated in space. Take the mean:
+        #     d_scalar = jnp.mean(d, axis=(1,2))    # shape (batch, 1)
 
-            # Pass through an MLP
-            d_emb = nn.Dense(self.param_channels)(d_scalar)       # shape (batch, 32)
-            d_emb = nn.relu(d_emb)
-            d_emb = nn.Dense(self.param_channels)(d_emb) # shape (batch, hidden_channels)
-            d_emb = nn.relu(d_emb)
+        #     # Pass through an MLP
+        #     d_emb = nn.Dense(self.param_channels)(d_scalar)       # shape (batch, 32)
+        #     d_emb = nn.relu(d_emb)
+        #     d_emb = nn.Dense(self.param_channels)(d_emb) # shape (batch, hidden_channels)
+        #     d_emb = nn.relu(d_emb)
 
-            # Broadcast to match (H, W)
-            d_emb = d_emb[:, None, None, :]  # now (batch, 1, 1, hidden_channels)
-            d_emb = jnp.tile(d_emb, (1, x.shape[1], x.shape[2], 1))  # (batch, H, W, hidden_channels)
+        #     # Broadcast to match (H, W)
+        #     d_emb = d_emb[:, None, None, :]  # now (batch, 1, 1, hidden_channels)
+        #     d_emb = jnp.tile(d_emb, (1, x.shape[1], x.shape[2], 1))  # (batch, H, W, hidden_channels)
             
-            x = jnp.concatenate((x,d), axis =-1)
+        #     x = jnp.concatenate((x,d), axis =-1)
 
         x = nn.Dense(self.hidden_channels)(x)
 
@@ -138,3 +137,62 @@ class FNO(nn.Module):
 def check():
     print('Geiloo')
     return
+
+
+class CAPEMask(nn.Module):
+    hidden_size: int
+    k_modes: int
+
+    @nn.compact
+    def __call__(self, x:jnp.ndarray, D:jnp.ndarray) -> jnp.ndarray:
+
+        B, H, W, C = x.shape
+        output_size = C
+
+        a = nn.Dense(self.hidden_size)(D[:,None])
+        a = nn.gelu(a)
+        a = nn.Dense(output_size)(a)
+
+        a = a[:,None,None,:]
+
+        z1 = nn.Conv(output_size, kernel_size=(1,1))(x)
+        z2 = nn.Conv(output_size, kernel_size=(3,3), padding = "SAME", feature_group_count=output_size)(x)
+        z3 = FourierLayer(k_modes=self.k_modes,
+                    out_channels=output_size)(x)
+        
+        v = a * (z1 + z2 + z3)
+
+        y  = nn.gelu(nn.Conv(output_size, (1, 1))(x) + v)
+        out = nn.Conv(output_size, (1, 1))(y)
+
+        return out                         # (B,H,W,C)
+    
+
+class CAPE_FNO(nn.Module):
+    
+    k_modes: int
+    fno_depth: int
+    cape_hidden_size: int
+    hidden_channels: int
+    input_channels: int
+    output_channels: int
+
+    @nn.compact
+    def __call__(self, x: jnp.ndarray, D: jnp.ndarray) -> jnp.ndarray:
+
+        cape = CAPEMask(hidden_size=self.cape_hidden_size, k_modes = self.k_modes)
+        # u_grid: (B,H,W,in_channels)
+        x = nn.Dense(self.hidden_channels)(x)
+        x = cape(x, D)  # apply CAPE before spectral stack
+
+        # Apply several Fourier layers
+        for _ in range(self.fno_depth):
+            x_res = FourierLayer(k_modes=self.k_modes, out_channels=self.hidden_channels)(x)
+            # Add a pointwise nonlinearity, e.g. GELU
+            x = x_res + nn.Dense(self.hidden_channels)(x) # Residual connection
+            x = nn.relu(x)
+
+        # Projection layer: map back to desired output dimension
+        # Suppose output dimension is also hidden_channels or 1; adjust as needed
+        x = nn.Dense(self.output_channels)(x)
+        return x
