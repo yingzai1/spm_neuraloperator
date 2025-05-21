@@ -31,12 +31,12 @@ class FourierLayer(nn.Module):
 
         # Truncate to k_modes in both spatial dimensions
         # For simplicity, assume H, W might be >= k_modes. We'll slice the top-left corner of the frequency domain:
+
         H = x_ft.shape[1]
         W = x.shape[2]
         W_half = x_ft.shape[2]
         h_modes = min(self.k_modes, H)
         w_modes = min(self.k_modes, W_half)
-
         x_ft_trunc = x_ft[:, :h_modes, :w_modes, :]
 
         # Create trainable parameters for Fourier layer
@@ -61,6 +61,11 @@ class FourierLayer(nn.Module):
             # w_c: (h_modes, w_modes, in_channels, out_channels, 2)
             # We'll just do a double sum:
             # out_c: (batch, h_modes, w_modes, out_channels, 2)
+            
+            assert x_c.ndim == 5 and w_c.ndim == 5, "need (B,Hₘ,Wₘ,Cin,2)"
+            assert x_c.shape[-1] == 2 and w_c.shape[-1] == 2, "last axis = complex"
+            assert x_c.shape[3] == w_c.shape[2], "Cin mismatch"
+
             out_re = jnp.einsum('bhwi,hwio->bhwo', x_c[..., 0], w_c[..., 0]) - jnp.einsum('bhwi,hwio->bhwo', x_c[..., 1], w_c[..., 1])
             out_im = jnp.einsum('bhwi,hwio->bhwo', x_c[..., 0], w_c[..., 1]) + jnp.einsum('bhwi,hwio->bhwo', x_c[..., 1], w_c[..., 0])
             return jnp.stack([out_re, out_im], axis=-1)
@@ -149,19 +154,16 @@ class CAPEMask(nn.Module):
         B, H, W, C = x.shape
         output_size = C
 
-        a = nn.Dense(self.hidden_size)(D[:,None])
+        a = nn.Dense(self.hidden_size)(D)
         a = nn.gelu(a)
         a = nn.Dense(output_size)(a)
-
         a = a[:,None,None,:]
-
         z1 = nn.Conv(output_size, kernel_size=(1,1))(x)
         z2 = nn.Conv(output_size, kernel_size=(3,3), padding = "SAME", feature_group_count=output_size)(x)
         z3 = FourierLayer(k_modes=self.k_modes,
                     out_channels=output_size)(x)
         
         v = a * (z1 + z2 + z3)
-
         y  = nn.gelu(nn.Conv(output_size, (1, 1))(x) + v)
         out = nn.Conv(output_size, (1, 1))(y)
 
@@ -184,12 +186,11 @@ class CAPE_FNO(nn.Module):
         # u_grid: (B,H,W,in_channels)
         x = nn.Dense(self.hidden_channels)(x)
         x = cape(x, D)  # apply CAPE before spectral stack
-
         # Apply several Fourier layers
         for _ in range(self.fno_depth):
             x_res = FourierLayer(k_modes=self.k_modes, out_channels=self.hidden_channels)(x)
             # Add a pointwise nonlinearity, e.g. GELU
-            x = x_res + nn.Dense(self.hidden_channels)(x) # Residual connection
+            x = x_res + nn.Conv(self.hidden_channels, kernel_size=(1, 1))(x)
             x = nn.relu(x)
 
         # Projection layer: map back to desired output dimension
