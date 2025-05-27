@@ -3,6 +3,9 @@ import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 from scipy.stats import qmc
+import os
+import flax.serialization
+from datetime import datetime
 
 def GaussianRFCurrent(seed, value, t_max):
     """
@@ -209,11 +212,6 @@ def simulate_single(I_func,t, soc=0.5, params = pybamm.ParameterValues("Chen2020
     c0 = sol["Positive particle concentration"].entries[:, 0, 0]
     cn_target = sol["Negative particle concentration"].entries[:, 0, :]
     return cn_target, c0
-
-
-import os
-import flax.serialization
-from datetime import datetime
 
 def save_model_params(params, directory="./trained_models", prefix = "anode", family = "CC"):
     """Serialize and save model params with a timestamped filename."""

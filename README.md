@@ -1,0 +1,1 @@
+Looking at a existing Readme file to understand how to write these things better
