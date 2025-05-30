@@ -150,4 +150,3 @@ def data_loader(X: np.ndarray, D, Y: np.ndarray, batch_size: int, shuffle: bool 
     for start_idx in range(0, num_samples, batch_size):
         batch_indices = indices[start_idx:start_idx+batch_size]
         yield X[batch_indices],D[batch_indices], Y[batch_indices]
-
