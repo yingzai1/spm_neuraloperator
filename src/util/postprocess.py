@@ -75,3 +75,16 @@ def calc_error_metrics(predictions, ground_truth, axis=(1, 2)):
         'rel_linf': relative_linf_error_set(predictions, ground_truth, axis=axis),
     }
 
+def calc_error_metrics_all(*metric_dicts):
+
+    # Ensure all dictionaries share the same keys
+    keys = metric_dicts[0].keys()
+    if not all(d.keys() == keys for d in metric_dicts):
+        raise ValueError("All metric dictionaries must have identical keys.")
+
+    averaged = {}
+    for k in keys:
+        stacked = jnp.stack([d[k] for d in metric_dicts])  # shape (n_dicts, ...)
+        averaged[k] = stacked.mean(axis=0)                 # preserves trailing dims
+
+    return averaged
