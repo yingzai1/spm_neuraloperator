@@ -314,3 +314,34 @@ def post_proc2(params, I_c, c_pred_an, c_true_an, c_pred_ca, c_true_ca, Ran, Rca
     V_true = U_OCP_ca(c_true_ca) - U_OCP_an(c_true_an) - 2 * R*T/F * jnp.arcsinh(0.5*xan/(j_true_an)) - 2 * R*T/F * jnp.arcsinh(0.5*xca/(j_true_ca))
 
     return V_pred, V_true
+
+def in_arcsinh(func_I, R, epsilon, L, A):
+
+    x = func_I * R / (3 * epsilon * L * A)
+
+    return x
+
+
+def post_proc_true(params, I_c, c_true_an, c_true_ca, Ran, Rca, epsan, epsca, Lan, Lca, A):
+    #params = pybamm.ParameterValues("Ecker2015") #OKane und Chen teilen sich SPM params
+    U_OCP_an = params["Negative electrode OCP [V]"]
+    U_OCP_ca = params["Positive electrode OCP [V]"]
+    R = params['Ideal gas constant [J.K-1.mol-1]']
+    F = params['Faraday constant [C.mol-1]']
+    T = params["Ambient temperature [K]"]
+
+    def in_arcsinh(I, R, epsilon, L, A):
+
+        x = I * R / (3 * epsilon * L * A)
+
+        return x
+    
+    j_true_an = c_true_an**0.5 * (1-c_true_an)**0.5
+    j_true_ca = c_true_ca**0.5 * (1-c_true_ca)**0.5
+
+    xan = in_arcsinh(-I_c, Ran, epsan, Lan, A)
+    xca = in_arcsinh(-I_c, Rca, epsca, Lca, A)
+
+    V_true = U_OCP_ca(c_true_ca) - U_OCP_an(c_true_an) - 2 * R*T/F * jnp.arcsinh(0.5*xan/(j_true_an)) - 2 * R*T/F * jnp.arcsinh(0.5*xca/(j_true_ca))
+
+    return V_true
