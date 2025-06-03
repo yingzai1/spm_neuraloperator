@@ -260,6 +260,9 @@ def post_proc(params, I_c, c_pred_an, c_true_an, c_pred_ca, c_true_ca, Ran, Rca,
     
     #sim_length = c_true_an.shape[0]
 
+    c_pred_an = np.clip(c_pred_an, a_min = 1e-12, a_max = None)
+    c_pred_ca = np.clip(c_pred_ca, a_min = 1e-12, a_max = None)
+
     j_pred_an = c_pred_an**0.5 * (1-c_pred_an)**0.5
     j_true_an = c_true_an**0.5 * (1-c_true_an)**0.5
 
