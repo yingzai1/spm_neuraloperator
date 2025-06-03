@@ -3,6 +3,9 @@ import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 from scipy.stats import qmc
+import os
+import flax.serialization
+from datetime import datetime
 
 def GaussianRFCurrent(seed, value, t_max):
     """
@@ -210,11 +213,6 @@ def simulate_single(I_func,t, soc=0.5, params = pybamm.ParameterValues("Chen2020
     cn_target = sol["Negative particle concentration"].entries[:, 0, :]
     return cn_target, c0
 
-
-import os
-import flax.serialization
-from datetime import datetime
-
 def save_model_params(params, directory="./trained_models", prefix = "anode", family = "CC"):
     """Serialize and save model params with a timestamped filename."""
     os.makedirs(directory, exist_ok=True)
@@ -261,6 +259,9 @@ def post_proc(params, I_c, c_pred_an, c_true_an, c_pred_ca, c_true_ca, Ran, Rca,
         return x
     
     #sim_length = c_true_an.shape[0]
+
+    c_pred_an = np.clip(c_pred_an, a_min = 1e-12, a_max = None)
+    c_pred_ca = np.clip(c_pred_ca, a_min = 1e-12, a_max = None)
 
     j_pred_an = c_pred_an**0.5 * (1-c_pred_an)**0.5
     j_true_an = c_true_an**0.5 * (1-c_true_an)**0.5
@@ -316,3 +317,34 @@ def post_proc2(params, I_c, c_pred_an, c_true_an, c_pred_ca, c_true_ca, Ran, Rca
     V_true = U_OCP_ca(c_true_ca) - U_OCP_an(c_true_an) - 2 * R*T/F * jnp.arcsinh(0.5*xan/(j_true_an)) - 2 * R*T/F * jnp.arcsinh(0.5*xca/(j_true_ca))
 
     return V_pred, V_true
+
+def in_arcsinh(func_I, R, epsilon, L, A):
+
+    x = func_I * R / (3 * epsilon * L * A)
+
+    return x
+
+
+def post_proc_true(params, I_c, c_true_an, c_true_ca, Ran, Rca, epsan, epsca, Lan, Lca, A):
+    #params = pybamm.ParameterValues("Ecker2015") #OKane und Chen teilen sich SPM params
+    U_OCP_an = params["Negative electrode OCP [V]"]
+    U_OCP_ca = params["Positive electrode OCP [V]"]
+    R = params['Ideal gas constant [J.K-1.mol-1]']
+    F = params['Faraday constant [C.mol-1]']
+    T = params["Ambient temperature [K]"]
+
+    def in_arcsinh(I, R, epsilon, L, A):
+
+        x = I * R / (3 * epsilon * L * A)
+
+        return x
+    
+    j_true_an = c_true_an**0.5 * (1-c_true_an)**0.5
+    j_true_ca = c_true_ca**0.5 * (1-c_true_ca)**0.5
+
+    xan = in_arcsinh(-I_c, Ran, epsan, Lan, A)
+    xca = in_arcsinh(-I_c, Rca, epsca, Lca, A)
+
+    V_true = U_OCP_ca(c_true_ca) - U_OCP_an(c_true_an) - 2 * R*T/F * jnp.arcsinh(0.5*xan/(j_true_an)) - 2 * R*T/F * jnp.arcsinh(0.5*xca/(j_true_ca))
+
+    return V_true

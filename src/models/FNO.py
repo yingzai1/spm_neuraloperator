@@ -131,20 +131,8 @@ class FNO(nn.Module):
         x = nn.Dense(self.output_channels)(x)
         return x
 
-# Example usage:
-# key = random.PRNGKey(0)
-# model = FNO(k_modes=16, fno_depth=4, d_v=2, hidden_channels=4)
-# input = jnp.ones((1,64,64,4))  # batch=1, domain=64x64, channels=4
-# variables = model.init(key, input)
-# out = model.apply(variables, input)
-# out.shape  # should be (1,64,64,2) assuming d_v=2
-
-def check():
-    print('Geiloo')
-    return
-
-
 class CAPEMask(nn.Module):
+    
     hidden_size: int
     k_modes: int
 
@@ -167,9 +155,8 @@ class CAPEMask(nn.Module):
         y  = nn.gelu(nn.Conv(output_size, (1, 1))(x) + v)
         out = nn.Conv(output_size, (1, 1))(y)
 
-        return out                         # (B,H,W,C)
+        return out
     
-
 class CAPE_FNO(nn.Module):
     
     k_modes: int
@@ -197,3 +184,5 @@ class CAPE_FNO(nn.Module):
         # Suppose output dimension is also hidden_channels or 1; adjust as needed
         x = nn.Dense(self.output_channels)(x)
         return x
+
+
