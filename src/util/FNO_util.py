@@ -21,7 +21,7 @@ def train_test_split(data, N_total, test_ratio=0.1, seed=None):
 
     return train_data, test_data
 
-def normalise_diffusion(D, lower=-15, upper=-12):
+def  normalise_diffusion(D, lower=-15, upper=-12):
     return 2*(D-lower)/(upper-lower) - 1
 
 
