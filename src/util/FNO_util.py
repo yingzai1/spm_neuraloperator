@@ -1,8 +1,10 @@
+import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import util.functions as functions
 import pybamm
 import numpy as np
+import functools
 
 
 def train_test_split(data, N_total, test_ratio=0.1, seed=None):
@@ -150,3 +152,50 @@ def data_loader(X: np.ndarray, D, Y: np.ndarray, batch_size: int, shuffle: bool 
     for start_idx in range(0, num_samples, batch_size):
         batch_indices = indices[start_idx:start_idx+batch_size]
         yield X[batch_indices],D[batch_indices], Y[batch_indices]
+
+
+@functools.partial(jax.jit, static_argnames=("padding_r", "padding_t"))  # everything is fused & runs on the accelerator
+def preprocess_data_fast(train_I, train_c0,
+                        padding_r: int = 2,
+                        padding_t: int = 5):
+    """
+    Pre-process the dataset into channels and padded shapes suitable for the FNO.
+
+    Parameters
+    ----------
+    train_I  : array (N, 75)      – current (time) history
+    train_c0 : array (N, 20)      – initial concentration
+    train_cn : array (N, 20, 75)  – target concentration
+    padding_r, padding_t          – radial / temporal padding
+
+    Returns
+    -------
+    X : array (N, 24, 85, 4)  – 4-channel input tensor
+    Y : array (N, 24, 85, 1)  – 1-channel target tensor
+    """
+    # ---------- constants ----------
+    N, W_orig   = train_I.shape          # 75
+    H_orig      = train_c0.shape[1]      # 20
+    H, W        = H_orig + 2*padding_r, W_orig + 2*padding_t   # 24, 85
+
+    # ---------- coordinate grid (shared by all samples) ----------
+    t = jnp.linspace(0.0, 1.0, W_orig)
+    r = jnp.linspace(0.0, 1.0, H_orig)
+    R, T = jnp.meshgrid(r, t, indexing='ij')                   # (20, 75)
+    R = jnp.pad(R, ((padding_r, padding_r), (padding_t, padding_t)))
+    T = jnp.pad(T, ((padding_r, padding_r), (padding_t, padding_t)))
+    # broadcast cheaply – no data copy!
+    R = jnp.broadcast_to(R, (N, H, W))
+    T = jnp.broadcast_to(T, (N, H, W))
+
+    # ---------- pad & broadcast the inputs ----------
+    I_pad  = jnp.pad(train_I,  ((0, 0), (padding_t, padding_t)))          # (N, 85)
+    c0_pad = jnp.pad(train_c0, ((0, 0), (padding_r, padding_r)))          # (N, 24)
+
+    I_2D  = jnp.broadcast_to(I_pad[:,  None, :], (N, H, W))               # (N,24,85)
+    c0_2D = jnp.broadcast_to(c0_pad[:, :, None], (N, H, W))               # (N,24,85)
+
+    # ---------- assemble channels ----------
+    X = jnp.stack((I_2D, c0_2D, R, T), axis=-1)                           # (N,24,85,4)
+    
+    return X.astype(jnp.float32)
