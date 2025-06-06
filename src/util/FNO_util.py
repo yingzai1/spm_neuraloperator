@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import util.functions as functions
+#import util.functions as functions
 import pybamm
 import numpy as np
 import functools
