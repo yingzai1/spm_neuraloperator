@@ -115,3 +115,17 @@ class DeepONet(nn.Module):
 # params = deep_onet.init(jax.random.PRNGKey(42), dummy_branch_input, dummy_trunk_input)
 # output = deep_onet.apply(params, dummy_branch_input, dummy_trunk_input)
 # print("Output shape:", output.shape)  # should be (750,)
+
+def generate_trunk_points(r_vals, t_vals):
+    # By passing r_vals first and using indexing='ij', 
+    # R_grid will correspond to radius and T_grid to time.
+    # R_grid.shape = (len(r_vals), len(t_vals))
+    # T_grid.shape = (len(r_vals), len(t_vals))
+    # This means the first dimension is radius and the second is time, 
+    # matching how train_cn is indexed (r, t).
+    R_grid, T_grid = jnp.meshgrid(r_vals, t_vals, indexing='ij')
+    
+    # Flatten into K x 2, preserving the (r, t) ordering in the flattening:
+    # The resulting points will be in an order consistent with flattening (r, t) arrays.
+    trunk_points = jnp.stack([T_grid.flatten(), R_grid.flatten()], axis=-1)
+    return trunk_points
