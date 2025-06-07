@@ -4,3 +4,4 @@ __pycache__/*
 data/*
 plots/*
 trained_models/*
+param_est_files/*

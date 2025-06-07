@@ -200,6 +200,11 @@ def estimate_diffusion_parameters(idx):
     def calc_rmse(V_pred, V_data):
         rmse = jnp.sqrt(jnp.mean((V_pred - V_data) ** 2))
         return rmse
+    
+    @jax.jit
+    def calc_rel_ls(V_pred, V_data):
+        rel_l2 = jnp.sqrt(jnp.mean((V_pred - V_data) ** 2)) / jnp.sqrt(jnp.mean(V_data ** 2))
+        return rel_l2
 
     @use_named_args(dimensions)
     def obj_voltage(log10_Dan, log10_Dca):
@@ -215,7 +220,7 @@ def estimate_diffusion_parameters(idx):
                 log10_Dca_norm,
             )
 
-            rmse = calc_rmse(V_pred, V_data)
+            rmse = calc_rel_ls(V_pred, V_data)
             rmse_val = float(rmse)
 
         except Exception:                       # numerical crash, NaNs, etc.
@@ -258,10 +263,10 @@ def estimate_diffusion_parameters(idx):
     log_Dca_true = unnormalise_diffusion(log_Dca_true)
 
 
-    V_test_pred = inference_step(func_I[test_idx],
-        X_anode[test_idx][None, ...], X_cathode[test_idx][None, ...],
-        D_anode[test_idx][None, ...].reshape(-1,1), D_cathode[test_idx][None, ...].reshape(-1,1)
-    )
+    # V_test_pred = inference_step(func_I[test_idx],
+    #     X_anode[test_idx][None, ...], X_cathode[test_idx][None, ...],
+    #     D_anode[test_idx][None, ...].reshape(-1,1), D_cathode[test_idx][None, ...].reshape(-1,1)
+    # )
 
     #assert np.isclose(V_test_pred, V_data, rtol=1e-1).all(), "Test prediction does not match the data!"
 
@@ -271,4 +276,174 @@ def estimate_diffusion_parameters(idx):
         Real(LOG10_D_MIN, LOG10_D_MAX, name="log10_Dca_pybamm"),
     ]
 
-    return best_log10_Dan, best_log10_Dca, res.fun, V_best_cape_fno_from_cape_fno, V_data
+    pybamm_model = pybamm.lithium_ion.SPM()
+    pybamm_model.events = []
+
+    # ▶  time grid that matches your measured voltage trace V_true
+    t_eval = np.linspace(0, 3600, 75)   # dt = sample spacing [s]
+
+    # ▶  current profile: use your measured current array `func_I`
+    #     (shape (T,)).  Convert to an interpolant so PyBaMM can call it at any t.
+    current_fun = pybamm.Interpolant(t_eval, -func_I[test_idx].squeeze(), pybamm.t)
+
+    #     Tell the model to use that function instead of the built-in C-rate
+    params_bat["Current function [A]"] = current_fun
+
+
+
+    @use_named_args(dimensions_pybamm)
+    def obj_voltage_pybamm(log10_Dan_pybamm, log10_Dca_pybamm):
+
+        try:
+            # --- 1.  normalise the candidate diffusivities ------------
+            D_anode_candidate = 10 ** log10_Dan_pybamm
+            D_cathode_candidate = 10 ** log10_Dca_pybamm
+
+            params_bat["Negative particle diffusivity [m2.s-1]"] = D_anode_candidate
+            params_bat["Positive particle diffusivity [m2.s-1]"] = D_cathode_candidate
+
+            sim = pybamm.Simulation(pybamm_model, parameter_values=params_bat)
+            sim.solve(initial_soc = soc[0], t_eval=t_eval)
+
+            #V_pred = sim.solution["Terminal voltage [V]"](t_eval)
+
+            c_an_surf = sim.solution["Negative particle concentration [mol.m-3]"].entries[-1,0, :]
+            c_ca_surf = sim.solution["Positive particle concentration [mol.m-3]"].entries[-1,0, :]
+            # --- 3.  voltage RMSE (you can use MAE or any other scalar) -------------
+            V_pred = calc_voltage(params_bat, c_an_surf, c_ca_surf, func_I[test_idx])
+            rmse = jnp.sqrt(jnp.mean((V_pred - V_data) ** 2))/ jnp.sqrt(jnp.mean(V_data ** 2))
+            if np.isnan(rmse):
+                return 1e8
+            return float(rmse)
+
+        except Exception as e:
+            return float('1e8')
+        
+    res_pybamm = gp_minimize(
+        obj_voltage_pybamm,
+        dimensions=dimensions_pybamm,
+        n_calls=60,            # ±25–35 evaluations per dimension is usually plenty
+        n_initial_points=12,   # random Sobol/Bach search first
+        acq_func="EI",         # expected improvement
+        random_state=0,
+    )
+
+    best_log10_Dan_pybamm, best_log10_Dca_pybamm = res_pybamm.x
+
+    params_bat["Negative particle diffusivity [m2.s-1]"] = 10 ** best_log10_Dan
+    params_bat["Positive particle diffusivity [m2.s-1]"] = 10 ** best_log10_Dca
+
+    sim = pybamm.Simulation(model=pybamm_model, parameter_values=params_bat)
+    sim.solve(initial_soc = soc[test_idx], t_eval=t_eval)
+
+    c_an_pybamm_from_cape_fno = sim.solution["Negative particle concentration"].entries
+    c_ca_pybamm_from_cape_fno = sim.solution["Positive particle concentration"].entries
+
+    c_an_surf_pybamm_from_cape_fno = c_an_pybamm_from_cape_fno[-1, 0, :]
+    c_ca_surf_pybamm_from_cape_fno = c_ca_pybamm_from_cape_fno[-1, 0, :]
+
+    # V_best_pybamm_from_cape_fno = sim.solution["Local voltage [V]"](t_eval)
+    # V_best_pybamm_from_cape_fno = calc_voltage(params_bat, c_an_surf_pybamm_from_cape_fno, c_ca_surf_pybamm_from_cape_fno, func_I[test_idx])
+
+
+    params_bat["Negative particle diffusivity [m2.s-1]"] = 10 ** log_Dan_true
+    params_bat["Positive particle diffusivity [m2.s-1]"] = 10 ** log_Dca_true
+
+    sim = pybamm.Simulation(model=pybamm_model, parameter_values=params_bat)
+    sim.solve(initial_soc = soc[test_idx], t_eval=t_eval)
+
+    c_an_true_pybamm = sim.solution["Negative particle concentration"].entries
+    c_ca_true_pybamm = sim.solution["Positive particle concentration"].entries
+
+    c_an_surf_true_pybamm = c_an_true_pybamm[-1, 0, :]
+    c_ca_surf_true_pybamm = c_ca_true_pybamm[-1, 0, :]
+
+    # V_true_pybamm = sim.solution["Local voltage [V]"](t_eval)
+    # V_true_pybamm = calc_voltage(params_bat, c_an_surf_true_pybamm, c_ca_surf_true_pybamm, func_I[test_idx])
+
+
+    params_bat["Negative particle diffusivity [m2.s-1]"] = 10 ** best_log10_Dan_pybamm
+    params_bat["Positive particle diffusivity [m2.s-1]"] = 10 ** best_log10_Dca_pybamm
+
+    sim = pybamm.Simulation(model=pybamm_model, parameter_values=params_bat)
+    sim.solve(initial_soc = soc[test_idx], t_eval=t_eval)
+    # V_best_pybamm_from_pybamm = sim.solution["Local voltage [V]"](t_eval)
+
+    c_an_pybamm_from_pybamm = sim.solution["Negative particle concentration"].entries
+    c_ca_pybamm_from_pybamm = sim.solution["Positive particle concentration"].entries
+
+    c_an_surf_pybamm_from_pybamm = c_an_pybamm_from_pybamm[-1, 0, :]
+    c_ca_surf_pybamm_from_pybamm = c_ca_pybamm_from_pybamm[-1, 0, :]
+
+
+    V_best_pybamm_from_cape_fno = calc_voltage(params_bat, c_an_surf_pybamm_from_cape_fno, c_ca_surf_pybamm_from_cape_fno, func_I[test_idx])
+
+    V_true_pybamm = calc_voltage(params_bat, c_an_surf_true_pybamm, c_ca_surf_true_pybamm, func_I[test_idx])
+
+    V_best_pybamm_from_pybamm = calc_voltage(params_bat, c_an_surf_pybamm_from_pybamm, c_ca_surf_pybamm_from_pybamm, func_I[test_idx])
+
+    V_best_cape_fno_from_pybamm = inference_step(func_I[test_idx],
+    X_anode[test_idx][None, ...], X_cathode[test_idx][None, ...],
+    _normalise_diffusion(jnp.array(best_log10_Dan_pybamm).reshape(-1,1)),
+    _normalise_diffusion(jnp.array(best_log10_Dca_pybamm).reshape(-1,1))
+    )
+
+    c_an_cape_fno_from_pybamm, c_ca_cape_fno_from_pybamm = inference_concentration_norm(
+    X_anode[test_idx][None, ...], X_cathode[test_idx][None, ...],
+    _normalise_diffusion(jnp.array(best_log10_Dan_pybamm).reshape(-1,1)),
+    _normalise_diffusion(jnp.array(best_log10_Dca_pybamm).reshape(-1,1))
+    )   
+
+    # V_test_pred = inference_step(func_I[test_idx],
+    #     X_anode[test_idx][None, ...], X_cathode[test_idx][None, ...],
+    #     D_anode[test_idx][None, ...].reshape(-1,1), D_cathode[test_idx][None, ...].reshape(-1,1)
+    # )
+
+    V_best_cape_fno_from_cape_fno = inference_step(func_I[test_idx],
+        X_anode[test_idx][None, ...], X_cathode[test_idx][None, ...],
+        _normalise_diffusion(jnp.array(best_log10_Dan).reshape(-1,1)), _normalise_diffusion(jnp.array(best_log10_Dca).reshape(-1,1))
+    )
+
+    c_an_cape_fno_from_cape_fno, c_ca_cape_fno_from_cape_fno = inference_concentration_norm(
+    X_anode[test_idx][None, ...], X_cathode[test_idx][None, ...],
+    _normalise_diffusion(jnp.array(best_log10_Dan).reshape(-1,1)),
+    _normalise_diffusion(jnp.array(best_log10_Dca).reshape(-1,1))
+    )   
+
+    diffs_anode = {
+        "log10_Dan_cape_fno": best_log10_Dan,
+        "log10_Dan_pybamm": best_log10_Dan_pybamm,
+        "log10_Dan_true": log_Dan_true
+    }
+
+    diffs_cathode = {
+        "log10_Dca_cape_fno": best_log10_Dca,
+        "log10_Dca_pybamm": best_log10_Dca_pybamm,
+        "log10_Dca_true": log_Dca_true
+    }
+
+    concentrations_anode = {
+        "c_an_pybamm_from_cape_fno": c_an_pybamm_from_cape_fno.squeeze(),
+        "c_an_data": cn_anode[test_idx, :, :],
+        "c_an_pybamm_from_pybamm": c_an_pybamm_from_pybamm.squeeze(),
+        "c_an_cape_fno_from_cape_fno": c_an_cape_fno_from_cape_fno.squeeze(),
+        "c_an_cape_fno_from_pybamm": c_an_cape_fno_from_pybamm.squeeze(),
+    }
+
+    concentrations_cathode = {
+        "c_ca_pybamm_from_cape_fno": c_ca_pybamm_from_cape_fno.squeeze(),
+        "c_ca_data": cn_cathode[test_idx, :, :],
+        "c_ca_pybamm_from_pybamm": c_ca_pybamm_from_pybamm.squeeze(),
+        "c_ca_cape_fno_from_cape_fno": c_ca_cape_fno_from_cape_fno.squeeze(),
+        "c_ca_cape_fno_from_pybamm": c_ca_cape_fno_from_pybamm.squeeze(),
+    }
+
+    voltages = {
+        "V_best_cape_fno_from_cape_fno": V_best_cape_fno_from_cape_fno.squeeze(),
+        "V_best_cape_fno_from_pybamm": V_best_cape_fno_from_pybamm.squeeze(),
+        "V_best_pybamm_from_cape_fno": V_best_pybamm_from_cape_fno.squeeze(),
+        "V_best_pybamm_from_pybamm": V_best_pybamm_from_pybamm.squeeze(),
+        "V_data": V_data.squeeze(),
+    }
+
+    return diffs_anode, diffs_cathode, concentrations_anode, concentrations_cathode, voltages, res.fun
