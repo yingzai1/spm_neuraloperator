@@ -16,7 +16,8 @@ from src.util.postprocess import filter_anode_cathode, calc_error_metrics, calc_
 from src.inference.parameter_estimation import get_jnp_U_OCP_anode, get_jnp_U_OCP_cathode
 
 LOG10_D_MIN, LOG10_D_MAX = -15.0, -12.0
-EPS = 1e-9
+EPS = 1e-6
+EPS_pybamm = 1e-6  # PyBaMM uses this value for numerical stability
 
 def  _normalise_diffusion(D, lower=LOG10_D_MIN, upper=LOG10_D_MAX):
     return 2*(D-lower)/(upper-lower) - 1
@@ -65,7 +66,7 @@ def estimate_diffusion_parameters(idx):
     c0_cathode = np.array(test_data["c0_cathode"])
     D_cathode = np.array(test_data["Dca"])
 
-    soc = np.array(test_data["soc"])
+    socs = np.array(test_data["soc"])
 
     D_anode = _normalise_diffusion(D_anode)
     D_cathode = _normalise_diffusion(D_cathode)
@@ -86,7 +87,7 @@ def estimate_diffusion_parameters(idx):
     c0_cathode = c0_cathode[mask]
     D_anode = D_anode[mask]
     D_cathode = D_cathode[mask]
-    soc = soc[mask]
+    socs = socs[mask]
 
     # Padding amounts
     padding_t = 5  # along t-axis
@@ -139,6 +140,8 @@ def estimate_diffusion_parameters(idx):
     def calc_voltage(params_bat, c_an_surf, c_ca_surf, func_I,):
         # Calculate the anode and cathode OCPs
 
+        c_an_surf = c_an_surf.clip(EPS_pybamm, 1.0 - EPS_pybamm)
+        c_ca_surf = c_ca_surf.clip(EPS_pybamm, 1.0 - EPS_pybamm)
 
         j_anode   = jnp.sqrt(c_an_surf * (1.0 - c_an_surf))
         j_cathode = jnp.sqrt(c_ca_surf * (1.0 - c_ca_surf))
@@ -208,7 +211,7 @@ def estimate_diffusion_parameters(idx):
 
     @use_named_args(dimensions)
     def obj_voltage(log10_Dan, log10_Dca):
-        try:
+            
             log10_Dan_norm = _normalise_diffusion(jnp.array(log10_Dan).reshape(-1, 1))
             log10_Dca_norm = _normalise_diffusion(jnp.array(log10_Dca).reshape(-1, 1))
 
@@ -223,14 +226,7 @@ def estimate_diffusion_parameters(idx):
             rmse = calc_rel_ls(V_pred, V_data)
             rmse_val = float(rmse)
 
-        except Exception:                       # numerical crash, NaNs, etc.
-            rmse_val = np.inf                  # treat as “worst possible” point
-
-        # 𝟤.  Make sure gp_minimize sees a *finite* number
-        if not np.isfinite(rmse_val):
-            rmse_val = 1e9                     # large but finite penalty
-
-        return rmse_val
+            return rmse_val
 
 
     res = gp_minimize(
@@ -294,30 +290,27 @@ def estimate_diffusion_parameters(idx):
     @use_named_args(dimensions_pybamm)
     def obj_voltage_pybamm(log10_Dan_pybamm, log10_Dca_pybamm):
 
-        try:
-            # --- 1.  normalise the candidate diffusivities ------------
-            D_anode_candidate = 10 ** log10_Dan_pybamm
-            D_cathode_candidate = 10 ** log10_Dca_pybamm
+        # --- 1.  normalise the candidate diffusivities ------------
+        D_anode_candidate = 10 ** log10_Dan_pybamm
+        D_cathode_candidate = 10 ** log10_Dca_pybamm
 
-            params_bat["Negative particle diffusivity [m2.s-1]"] = D_anode_candidate
-            params_bat["Positive particle diffusivity [m2.s-1]"] = D_cathode_candidate
+        params_bat["Negative particle diffusivity [m2.s-1]"] = D_anode_candidate
+        params_bat["Positive particle diffusivity [m2.s-1]"] = D_cathode_candidate
 
-            sim = pybamm.Simulation(pybamm_model, parameter_values=params_bat)
-            sim.solve(initial_soc = soc[0], t_eval=t_eval)
+        sim = pybamm.Simulation(pybamm_model, parameter_values=params_bat)
+        sim.solve(initial_soc = socs[test_idx], t_eval=t_eval)
 
-            #V_pred = sim.solution["Terminal voltage [V]"](t_eval)
+        #V_pred = sim.solution["Terminal voltage [V]"](t_eval)
 
-            c_an_surf = sim.solution["Negative particle concentration [mol.m-3]"].entries[-1,0, :]
-            c_ca_surf = sim.solution["Positive particle concentration [mol.m-3]"].entries[-1,0, :]
-            # --- 3.  voltage RMSE (you can use MAE or any other scalar) -------------
-            V_pred = calc_voltage(params_bat, c_an_surf, c_ca_surf, func_I[test_idx])
-            rmse = jnp.sqrt(jnp.mean((V_pred - V_data) ** 2))/ jnp.sqrt(jnp.mean(V_data ** 2))
-            if np.isnan(rmse):
-                return 1e8
-            return float(rmse)
+        c_an_surf = sim.solution["Negative particle concentration"].entries[-1,0, :]
+        c_ca_surf = sim.solution["Positive particle concentration"].entries[-1,0, :]
+        # --- 3.  voltage RMSE (you can use MAE or any other scalar) -------------
+        V_pred = calc_voltage(params_bat, c_an_surf, c_ca_surf, func_I[test_idx])
 
-        except Exception as e:
-            return float('1e8')
+        rmse = jnp.sqrt(jnp.mean((V_pred - V_data) ** 2))/ jnp.sqrt(jnp.mean(V_data ** 2))
+
+        return float(rmse)
+    
         
     res_pybamm = gp_minimize(
         obj_voltage_pybamm,
@@ -334,7 +327,7 @@ def estimate_diffusion_parameters(idx):
     params_bat["Positive particle diffusivity [m2.s-1]"] = 10 ** best_log10_Dca
 
     sim = pybamm.Simulation(model=pybamm_model, parameter_values=params_bat)
-    sim.solve(initial_soc = soc[test_idx], t_eval=t_eval)
+    sim.solve(initial_soc = socs[test_idx], t_eval=t_eval)
 
     c_an_pybamm_from_cape_fno = sim.solution["Negative particle concentration"].entries
     c_ca_pybamm_from_cape_fno = sim.solution["Positive particle concentration"].entries
@@ -350,7 +343,7 @@ def estimate_diffusion_parameters(idx):
     params_bat["Positive particle diffusivity [m2.s-1]"] = 10 ** log_Dca_true
 
     sim = pybamm.Simulation(model=pybamm_model, parameter_values=params_bat)
-    sim.solve(initial_soc = soc[test_idx], t_eval=t_eval)
+    sim.solve(initial_soc = socs[test_idx], t_eval=t_eval)
 
     c_an_true_pybamm = sim.solution["Negative particle concentration"].entries
     c_ca_true_pybamm = sim.solution["Positive particle concentration"].entries
@@ -366,7 +359,7 @@ def estimate_diffusion_parameters(idx):
     params_bat["Positive particle diffusivity [m2.s-1]"] = 10 ** best_log10_Dca_pybamm
 
     sim = pybamm.Simulation(model=pybamm_model, parameter_values=params_bat)
-    sim.solve(initial_soc = soc[test_idx], t_eval=t_eval)
+    sim.solve(initial_soc = socs[test_idx], t_eval=t_eval)
     # V_best_pybamm_from_pybamm = sim.solution["Local voltage [V]"](t_eval)
 
     c_an_pybamm_from_pybamm = sim.solution["Negative particle concentration"].entries
