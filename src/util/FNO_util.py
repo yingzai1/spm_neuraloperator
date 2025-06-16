@@ -199,3 +199,33 @@ def preprocess_data_fast(train_I, train_c0,
     X = jnp.stack((I_2D, c0_2D, R, T), axis=-1)                           # (N,24,85,4)
     
     return X.astype(jnp.float32)
+
+
+def data_loader_noD(X: np.ndarray, Y: np.ndarray, batch_size: int, shuffle: bool = True):
+    """
+    A simple data loader that yields batches of preprocessed FNO data.
+    
+    Parameters
+    ----------
+    X : jnp.ndarray
+        Preprocessed input data of shape (num_samples, 24,85,4).
+    Y : jnp.ndarray
+        Preprocessed target data of shape (num_samples, 24,85,1).
+    batch_size : int
+        Number of samples per batch.
+    shuffle : bool
+        Whether to shuffle the dataset before yielding batches.
+
+    Yields
+    ------
+    (X_batch, Y_batch) : tuple of jnp.ndarray
+        X_batch : (batch_size, 24,85,4)
+        Y_batch : (batch_size, 24,85,1)
+    """
+    num_samples = X.shape[0]
+    indices = np.arange(num_samples)
+    if shuffle:
+        np.random.shuffle(indices)
+    for start_idx in range(0, num_samples, batch_size):
+        batch_indices = indices[start_idx:start_idx+batch_size]
+        yield X[batch_indices], Y[batch_indices]

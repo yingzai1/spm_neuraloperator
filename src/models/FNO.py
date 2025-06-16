@@ -53,7 +53,6 @@ class FourierLayer(nn.Module):
         x_real = jnp.real(x_ft_trunc)
         x_imag = jnp.imag(x_ft_trunc)
         x_complex = jnp.stack([x_real, x_imag], axis=-1)  # (batch, h_modes, w_modes, in_channels, 2)
-
         W_complex = jnp.stack([W_real, W_imag], axis=-1)  # (h_modes, w_modes, in_channels, out_channels, 2)
 
         def complex_mmul(x_c, w_c):
@@ -62,9 +61,9 @@ class FourierLayer(nn.Module):
             # We'll just do a double sum:
             # out_c: (batch, h_modes, w_modes, out_channels, 2)
             
-            assert x_c.ndim == 5 and w_c.ndim == 5, "need (B,Hₘ,Wₘ,Cin,2)"
-            assert x_c.shape[-1] == 2 and w_c.shape[-1] == 2, "last axis = complex"
-            assert x_c.shape[3] == w_c.shape[2], "Cin mismatch"
+            # assert x_c.ndim == 5 and w_c.ndim == 5, "need (B,Hₘ,Wₘ,Cin,2)"
+            # assert x_c.shape[-1] == 2 and w_c.shape[-1] == 2, "last axis = complex"
+            # assert x_c.shape[3] == w_c.shape[2], "Cin mismatch"
 
             out_re = jnp.einsum('bhwi,hwio->bhwo', x_c[..., 0], w_c[..., 0]) - jnp.einsum('bhwi,hwio->bhwo', x_c[..., 1], w_c[..., 1])
             out_im = jnp.einsum('bhwi,hwio->bhwo', x_c[..., 0], w_c[..., 1]) + jnp.einsum('bhwi,hwio->bhwo', x_c[..., 1], w_c[..., 0])
@@ -184,5 +183,3 @@ class CAPE_FNO(nn.Module):
         # Suppose output dimension is also hidden_channels or 1; adjust as needed
         x = nn.Dense(self.output_channels)(x)
         return x
-
-
