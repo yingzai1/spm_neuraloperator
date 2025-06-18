@@ -8,18 +8,19 @@ if __name__ == "__main__":
     result = estimate_diffusion_parameters(idx)
 
     np.savez(
-        f"param_est_files/run_{idx}.npz",
+        f"param_est_files2/run_{idx}.npz",
         diffs_anode        = result[0],
         diffs_cathode      = result[1],
         concentrations_anode   = result[2],
         concentrations_cathode = result[3],
-        voltages           = result[4]
+        voltages           = result[4],
+        convergence_metrics = result[5]
     )
 
 
     # Stdout must be *machine-readable* so we use JSON
     json.dump({
         "idx": idx,
-        "rmse": result[5],
+        "rmse": result[6],
     }, sys.stdout)
     

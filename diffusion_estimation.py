@@ -439,4 +439,11 @@ def estimate_diffusion_parameters(idx):
         "V_data": V_data.squeeze(),
     }
 
-    return diffs_anode, diffs_cathode, concentrations_anode, concentrations_cathode, voltages, res.fun
+    convergence_metrics = {
+        "res_cape_fno": res.func_vals.squeeze(),
+        "res_pybamm": res_pybamm.func_vals.squeeze(),
+    }
+
+
+
+    return diffs_anode, diffs_cathode, concentrations_anode, concentrations_cathode, voltages, convergence_metrics, res.fun

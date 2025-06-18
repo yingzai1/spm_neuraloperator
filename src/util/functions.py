@@ -213,14 +213,17 @@ def simulate_single(I_func,t, soc=0.5, params = pybamm.ParameterValues("Chen2020
     cn_target = sol["Negative particle concentration"].entries[:, 0, :]
     return cn_target, c0
 
-def save_model_params(params, directory="./trained_models", prefix = "anode", family = "CC"):
+def save_model_params(params, directory="./trained_models", prefix = "anode", family = "CC", parameter_name = "Prada2013", N_total = None):
     """Serialize and save model params with a timestamped filename."""
     os.makedirs(directory, exist_ok=True)
     # Create a unique timestamp string, e.g. "2025-03-06_14-20-59"
     timestamp_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     
     # Construct filename, e.g. "./checkpoints/model_params_2025-03-06_14-20-59.msgpack"
-    filename = os.path.join(directory, f"{prefix}_{family}_{timestamp_str}.msgpack")
+    if N_total is None:
+        filename = os.path.join(directory, f"{prefix}_{parameter_name}_{family}_{timestamp_str}.msgpack")
+    else:
+        filename = os.path.join(directory, f"{prefix}_{parameter_name}_{family}_{N_total}_{timestamp_str}.msgpack")
 
     # Convert params PyTree to a bytes object
     param_bytes = flax.serialization.to_bytes(params)
@@ -259,14 +262,19 @@ def post_proc(params, I_c, c_pred_an, c_true_an, c_pred_ca, c_true_ca, Ran, Rca,
         return x
     
     #sim_length = c_true_an.shape[0]
+    c_pred_an = c_pred_an.clip(1e-5, 1.0 - 1e-5)
+    c_pred_ca = c_pred_ca.clip(1e-5, 1.0 - 1e-5)
 
-    c_pred_an = np.clip(c_pred_an, a_min = 1e-12, a_max = None)
-    c_pred_ca = np.clip(c_pred_ca, a_min = 1e-12, a_max = None)
+    j_pred_an   = np.sqrt(c_pred_an * (1.0 - c_pred_an))
+    j_pred_ca = np.sqrt(c_pred_ca * (1.0 - c_pred_ca))
 
-    j_pred_an = c_pred_an**0.5 * (1-c_pred_an)**0.5
+    # c_pred_an = np.clip(c_pred_an, a_min = 1e-3, a_max = None)
+    # c_pred_ca = np.clip(c_pred_ca, a_min = 1e-3, a_max = None)
+
+    # j_pred_an = c_pred_an**0.5 * (1-c_pred_an)**0.5
     j_true_an = c_true_an**0.5 * (1-c_true_an)**0.5
 
-    j_pred_ca = c_pred_ca**0.5 * (1-c_pred_ca)**0.5
+    # j_pred_ca = c_pred_ca**0.5 * (1-c_pred_ca)**0.5
     j_true_ca = c_true_ca**0.5 * (1-c_true_ca)**0.5
 
     xan = in_arcsinh(-I_c, Ran, epsan, Lan, A)

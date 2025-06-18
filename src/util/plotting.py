@@ -1918,3 +1918,846 @@ def create_plot_paper(
 
     fig.tight_layout(rect=[0, 0.1, 1, 1])
     return fig, axes
+
+
+# ── main figure builder ───────────────────────────────────────────────
+def create_plot_paper12(
+        pred_sets,
+        c_true_anode, c_true_cathode,
+        func_I, V_true,
+        t_max, Ran, Rca,
+        pred_labels=None,
+        cmap='viridis',
+        err_cmap='plasma'):
+
+    # ───── sanity / defaults ─────────────────────────────────────────
+    n_pred = len(pred_sets)
+    if pred_labels is None:
+        pred_labels = [f'Pred-{i+1}' for i in range(n_pred)]
+    if len(pred_labels) != n_pred:
+        raise ValueError('pred_labels length must match pred_sets length')
+
+    # ───── global line-colour palette ────────────────────────────────
+    gt_colour   = 'k'
+    pred_colours = sns.color_palette("colorblind", n_pred)
+    label_colour = {'Ground Truth': gt_colour,
+                    **dict(zip(pred_labels, pred_colours))}
+
+    # meshes ----------------------------------------------------------
+    R, T = c_true_anode.shape
+    t = np.linspace(0, 1, T)
+    r = np.linspace(0, 1, R)
+    TT, RR = np.meshgrid(t, r)
+
+    # ───── norms ─────────────────────────────────────────────────────
+    conc_arrays = ([c_true_anode, c_true_cathode] +
+                   [p['anode']   for p in pred_sets] +
+                   [p['cathode'] for p in pred_sets])
+    conc_norm = Normalize(np.min(conc_arrays), np.max(conc_arrays))
+
+    a_norm = Normalize(np.min([c_true_anode]   + [p['anode']   for p in pred_sets]),
+                       np.max([c_true_anode]   + [p['anode']   for p in pred_sets]))
+    c_norm = Normalize(np.min([c_true_cathode] + [p['cathode'] for p in pred_sets]),
+                       np.max([c_true_cathode] + [p['cathode'] for p in pred_sets]))
+
+    model_err_norm = {}
+    for p, lbl in zip(pred_sets, pred_labels):
+        err_max = np.max([np.abs(p['anode']   - c_true_anode),
+                          np.abs(p['cathode'] - c_true_cathode)])
+        model_err_norm[lbl] = Normalize(0, err_max)
+
+    # figure & GridSpec ----------------------------------------------
+    n_cols = 1 + n_pred + 1
+    # fig = plt.figure(figsize=(4.8 * n_cols, 11))
+    fig = plt.figure(figsize=(1.496 * n_cols, 1.5 * 7.48031596))
+    gs  = gridspec.GridSpec(
+        4, n_cols,
+        width_ratios=[1]*(n_cols-1) + [0.9],
+        hspace=0.45, wspace=0.28, figure=fig
+    )
+    axes = {}
+
+    plt.rcParams.update({
+        "savefig.bbox":   "tight",
+        "font.family":    "sans-serif",
+        "font.sans-serif":["Arial","Helvetica","DejaVu Sans"],
+        "font.size":        8,
+        "axes.titlesize":   9,
+        "axes.labelsize":   8,
+        "xtick.labelsize":  7,
+        "ytick.labelsize":  7,
+        "legend.fontsize":  7,
+        "axes.formatter.useoffset": False,
+    })
+
+    # ───── two stacked error colour-bars ─────────────────────────────
+    dummy_ax = fig.add_subplot(gs[3, 0])
+    bbox = dummy_ax.get_position()
+    dummy_ax.remove()
+
+    bar_h, spacing = 0.013, 0.05
+    for i, lbl in enumerate(reversed(pred_labels)):
+        cax = fig.add_axes([bbox.x0,
+                            bbox.y0 + i*(bar_h + spacing),
+                            bbox.width, bar_h])
+
+        cb = fig.colorbar(ScalarMappable(norm=model_err_norm[lbl], cmap=err_cmap),
+                          cax=cax, orientation='horizontal')
+        cb.ax.set_title(fr'{lbl} $|err|\;[\mathrm{{mol\,m^{{-3}}}}]$')
+        cb.ax.xaxis.set_ticks_position('bottom')
+        cb.ax.tick_params(bottom=True, top=False,
+                          labelbottom=True, labeltop=False)
+
+    # ===========  ROW-3 : anode-error maps + legend  ================
+    fig.add_subplot(gs[2, 0]).axis('off')
+    for col, (p, lbl) in enumerate(zip(pred_sets, pred_labels), start=1):
+        ax = fig.add_subplot(gs[2, col])
+        _contourf_no_cracks(ax,
+                            TT*t_max, RR*Ran*1e6,
+                            np.abs(p['anode'] - c_true_anode),
+                            levels=100, cmap=err_cmap, norm=model_err_norm[lbl])
+        ax.set_xlabel('Time [$s$]')
+        if col == 1:
+            ax.set_ylabel('Radial position [µm]')
+        # ax.set_ylabel('Radial position [µm]')
+        ax.set_title('Anode $|err|$')
+        axes[f'{lbl}_err_anode'] = ax
+
+    ax_legend = fig.add_subplot(gs[3, -1])
+    ax_legend.axis('off')
+    axes['legend'] = ax_legend
+
+    # ===========  ROW-4 : cathode-error maps + I(t) ==================
+    fig.add_subplot(gs[3, 0]).axis('off')
+    for col, (p, lbl) in enumerate(zip(pred_sets, pred_labels), start=1):
+        ax = fig.add_subplot(gs[3, col])
+        _contourf_no_cracks(ax,
+                            TT*t_max, RR*Rca*1e6,
+                            np.abs(p['cathode'] - c_true_cathode),
+                            levels=100, cmap=err_cmap, norm=model_err_norm[lbl])
+        ax.set_xlabel('Time [$s$]')
+        if col == 1:
+            ax.set_ylabel('Radial position [µm]')
+        ax.set_title('Cathode $|err|$')
+        axes[f'{lbl}_err_cathode'] = ax
+
+    # ---------- 1-D LINE PLOTS --------------------------------------
+    ax_I = fig.add_subplot(gs[0, -1])
+    ax_I.plot(t*t_max, func_I, color=label_colour['Ground Truth'])
+    ax_I.set_title('Applied Current')
+    ax_I.set_xlabel('Time [$s$]')
+    ax_I.set_ylabel(r'$I\;[A]$')
+    axes['current'] = ax_I
+
+    # ===========  ROW-1 : True-An + preds + V(t) =====================
+    ax_true_an = fig.add_subplot(gs[0, 0])
+    _contourf_no_cracks(ax_true_an,
+                        TT*t_max, RR*Ran*1e6,
+                        c_true_anode, levels=100, cmap=cmap, norm=a_norm)
+    ax_true_an.set_xlabel('Time [$s$]')
+    ax_true_an.set_ylabel('Radial position [µm]')
+    ax_true_an.set_title("Ground Truth\nAnode")
+    text = ax_true_an.text(-10, 5,"Anode", size=8,
+        verticalalignment='center', rotation=90)
+    axes['true_anode'] = ax_true_an
+
+    for col, (p, lbl) in enumerate(zip(pred_sets, pred_labels), start=1):
+        ax = fig.add_subplot(gs[0, col])
+        _contourf_no_cracks(ax,
+                            TT*t_max, RR*Ran*1e6,
+                            p['anode'], levels=100, cmap=cmap, norm=a_norm)
+        ax.set_xlabel('Time [$s$]')
+        # ax.set_ylabel('Radial position [µm]')
+        ax.set_title(f'{lbl}')
+        axes[f'{lbl}_anode'] = ax
+
+    ax_V = fig.add_subplot(gs[1, -1])
+    ax_V.plot(t*t_max, V_true, lw=2,
+              color=label_colour['Ground Truth'], label='Ground Truth')
+    for p, lbl in zip(pred_sets, pred_labels):
+        ax_V.plot(t*t_max, p['V'], linestyle='--',
+                  color=label_colour[lbl], label=lbl)
+    ax_V.set_title('Cell Voltage')
+    ax_V.set_xlabel('Time [$s$]')
+    ax_V.set_ylabel(r'$V\;[V]$')
+    axes['voltage'] = ax_V
+
+    # ===========  ROW-2 : True-Ca + preds + |V-err| ==================
+    ax_true_ca = fig.add_subplot(gs[1, 0])
+    _contourf_no_cracks(ax_true_ca,
+                        TT*t_max, RR*Rca*1e6,
+                        c_true_cathode, levels=100, cmap=cmap, norm=c_norm)
+    ax_true_ca.set_xlabel('Time [$s$]')
+    ax_true_ca.set_ylabel('Radial position [µm]')
+    ax_true_ca.set_title('Cathode')
+    axes['true_cathode'] = ax_true_ca
+    text = ax_true_ca.text(0, 0,"Cathode", size=8,
+        verticalalignment='center', rotation=90)
+
+    for col, (p, lbl) in enumerate(zip(pred_sets, pred_labels), start=1):
+        ax = fig.add_subplot(gs[1, col])
+        _contourf_no_cracks(ax,
+                            TT*t_max, RR*Rca*1e6,
+                            p['cathode'], levels=100, cmap=cmap, norm=c_norm)
+        ax.set_xlabel('Time [$s$]')
+        # ax.set_ylabel('Radial position [µm]')
+        ax.set_title(f'{lbl}')
+        axes[f'{lbl}_cathode'] = ax
+
+    ax_Verr = fig.add_subplot(gs[2, -1])
+    for p, lbl in zip(pred_sets, pred_labels):
+        ax_Verr.plot(t*t_max,
+                     np.abs(p['V'] - V_true)*1e3,
+                     color=label_colour[lbl],
+                     label=f'{lbl} |V-err|')
+    ax_Verr.set_title('Absolute Voltage Error')
+    ax_Verr.set_xlabel('Time [$s$]')
+    ax_Verr.set_ylabel('Error [mV]')
+    axes['voltage_error'] = ax_Verr
+
+    # ---------- concentration colour-bars ---------------------------
+    tmp_ax = fig.add_subplot(gs[2, 0])
+    bbox   = tmp_ax.get_position()
+    tmp_ax.remove()
+
+    gap, bar_h = 0.075, 0.02
+    # anode bar
+    y0 = bbox.y0 + bbox.height - (0 + 1.5) * bar_h
+    cax = fig.add_axes([bbox.x0, y0, bbox.width, bar_h])
+    cb  = fig.colorbar(ScalarMappable(norm=a_norm, cmap=cmap),
+                       cax=cax, orientation='horizontal')
+    cb.ax.set_title(r'Concentration Anode [$\mathrm{mol\,m^{-3}}$]')
+    cb.ax.xaxis.set_label_position('top')
+    cb.ax.xaxis.set_ticks_position('bottom')
+
+    # cathode bar
+    y0 = bbox.y0 + bbox.height - (1 + 1.5) * bar_h - gap
+    cax = fig.add_axes([bbox.x0, y0, bbox.width, bar_h])
+    cb  = fig.colorbar(ScalarMappable(norm=c_norm, cmap=cmap),
+                       cax=cax, orientation='horizontal')
+    cb.ax.set_title(r'Concentration Cathode [$\mathrm{mol\,m^{-3}}$]')
+    cb.ax.xaxis.set_label_position('top')
+    cb.ax.xaxis.set_ticks_position('bottom')
+
+    # ---------- legend (you already styled it) ----------------------
+    proxy_handles = [Line2D([], [], lw=2,
+                            color=label_colour['Ground Truth'],
+                            label='Ground Truth')]
+    proxy_handles += [Line2D([], [], lw=2,
+                             color=label_colour[lbl], label=lbl)
+                      for lbl in pred_labels]
+
+    ax_legend.legend(proxy_handles,
+                     [h.get_label() for h in proxy_handles],
+                     loc='center', frameon=False,
+                     fontsize=7,
+                     handlelength=3,
+                     handletextpad=1.0,
+                     borderpad=1.2)
+
+    # align y-labels -------------------------------------------------
+    radial_axes = [axes['true_anode'], axes['true_cathode']] \
+                  + [axes[f'{lbl}_anode']   for lbl in pred_labels] \
+                  + [axes[f'{lbl}_cathode'] for lbl in pred_labels] \
+                  + [ax for ax in fig.axes if 'err' in ax.get_title()]
+    fig.align_ylabels(radial_axes)
+
+    fig.tight_layout(rect=[0, 0.1, 1, 1])
+    return fig, axes
+
+
+# ── main figure builder ───────────────────────────────────────────────
+def create_plot_papera(
+        pred_sets,
+        c_true_anode, c_true_cathode,
+        func_I, V_true,
+        t_max, Ran, Rca,
+        pred_labels=None,
+        cmap='viridis', err_cmap='plasma'):
+    """
+    Build the multi‑panel figure exactly in the format required for an
+    Elsevier 2‑column paper (190 mm width, 7–10 pt fonts).
+    """
+
+    # ─────────────────── basics & defaults ──────────────────────────
+    n_pred = len(pred_sets)                         # #prediction rows
+    if pred_labels is None:
+        pred_labels = [f'Pred-{i+1}' for i in range(n_pred)]
+    if len(pred_labels) != n_pred:
+        raise ValueError('pred_labels length must match pred_sets length')
+
+    gt_colour    = 'k'
+    pred_colours = sns.color_palette("colorblind", n_pred)
+    label_colour = {'Ground Truth': gt_colour,
+                    **dict(zip(pred_labels, pred_colours))}
+
+    # ─────────────────── meshes & norms ─────────────────────────────
+    R, T = c_true_anode.shape
+    t = np.linspace(0, 1, T)
+    r = np.linspace(0, 1, R)
+    TT, RR = np.meshgrid(t, r)
+
+    a_norm = Normalize(np.min([c_true_anode]   + [p['anode']   for p in pred_sets]),
+                       np.max([c_true_anode]   + [p['anode']   for p in pred_sets]))
+    c_norm = Normalize(np.min([c_true_cathode] + [p['cathode'] for p in pred_sets]),
+                       np.max([c_true_cathode] + [p['cathode'] for p in pred_sets]))
+
+    model_err_norm = {}
+    for p, lbl in zip(pred_sets, pred_labels):
+        err_max = np.max([np.abs(p['anode'] - c_true_anode),
+                          np.abs(p['cathode'] - c_true_cathode)])
+        model_err_norm[lbl] = Normalize(0, err_max)
+
+    # ─────────────────── figure & GridSpec ──────────────────────────
+    mm_to_inch = 1 / 25.4
+    fig_width  = 190 * mm_to_inch              # 190 mm = full Elsevier width
+    row_h_in   = 40 * mm_to_inch               # ≈ 40 mm per data row
+    n_rows     = n_pred + 2                    # GT + preds + line‑plot row
+    fig_height = row_h_in * n_rows
+    fig = plt.figure(figsize=(fig_width, fig_height))
+
+    gs = gridspec.GridSpec(
+        n_rows, 4,
+        height_ratios=[1]*n_rows,
+        width_ratios=[1, 1, 1, 1],             # ← equal columns
+        hspace=0.45, wspace=0.35, figure=fig
+    )
+    cell = lambda r, c: gs[r, c]               # convenience
+    axes = {}
+
+    # ─────────────────── typography helper ─────────────────────────
+    def style_axis(ax, title=None, xlabel=None, ylabel=None):
+        if title  is not None: ax.set_title(title,  fontsize=9)
+        if xlabel is not None: ax.set_xlabel(xlabel, fontsize=8)
+        if ylabel is not None: ax.set_ylabel(ylabel, fontsize=8)
+        ax.tick_params(axis='both', labelsize=7)
+
+    # ─────────────────── row‑0 : ground truth + colour‑bars ─────────
+    ax = fig.add_subplot(cell(0, 0))
+    _contourf_no_cracks(ax, TT*t_max, RR*Ran*1e6,
+                        c_true_anode, levels=100, cmap=cmap, norm=a_norm)
+    style_axis(ax, 'Ground Truth Anode', 'Time [$s$]', 'Radial [µm]')
+    axes['true_anode'] = ax
+
+    ax = fig.add_subplot(cell(0, 1))
+    _contourf_no_cracks(ax, TT*t_max, RR*Rca*1e6,
+                        c_true_cathode, levels=100, cmap=cmap, norm=c_norm)
+    style_axis(ax, 'Ground Truth Cathode', 'Time [$s$]', 'Radial [µm]')
+    axes['true_cathode'] = ax
+
+    # concentration bars (col‑2, row‑0)
+    tmp = fig.add_subplot(cell(0, 2)); bbox_c = tmp.get_position(); tmp.remove()
+    bar_h, gap = 0.022, 0.05
+    y = bbox_c.y0 + bbox_c.height - bar_h
+    cax = fig.add_axes([bbox_c.x0, y, bbox_c.width, bar_h])
+    cb  = fig.colorbar(ScalarMappable(norm=a_norm, cmap=cmap),
+                       cax=cax, orientation='horizontal')
+    cb.ax.set_title(r'Concentration Anode [$\mathrm{mol\,m^{-3}}$]', fontsize=7)
+    cb.ax.tick_params(labelsize=7)
+
+    y -= (bar_h + gap)
+    cax = fig.add_axes([bbox_c.x0, y, bbox_c.width, bar_h])
+    cb  = fig.colorbar(ScalarMappable(norm=c_norm, cmap=cmap),
+                       cax=cax, orientation='horizontal')
+    cb.ax.set_title(r'Concentration Cathode [$\mathrm{mol\,m^{-3}}$]', fontsize=7)
+    cb.ax.tick_params(labelsize=7)
+
+    # error bars (col‑3, row‑0)
+    tmp = fig.add_subplot(cell(0, 3)); bbox_e = tmp.get_position(); tmp.remove()
+    bar_h, spacing = 0.014, 0.035
+    for i, lbl in enumerate(reversed(pred_labels)):
+        cax = fig.add_axes([bbox_e.x0,
+                            bbox_e.y0 + i*(bar_h + spacing),
+                            bbox_e.width, bar_h])
+        cb = fig.colorbar(ScalarMappable(norm=model_err_norm[lbl], cmap=err_cmap),
+                          cax=cax, orientation='horizontal')
+        cb.ax.set_title(fr'{lbl} $|err|\,[\mathrm{{mol\,m^{{-3}}}}]$', fontsize=7)
+        cb.ax.tick_params(labelsize=7)
+
+    # ─────────────────── rows‑1…n_pred : predictions ───────────────
+    for r, (p, lbl) in enumerate(zip(pred_sets, pred_labels), start=1):
+        ax = fig.add_subplot(cell(r, 0))
+        _contourf_no_cracks(ax, TT*t_max, RR*Ran*1e6,
+                            p['anode'], levels=100, cmap=cmap, norm=a_norm)
+        style_axis(ax, f'{lbl} Anode', 'Time [$s$]', 'Radial [µm]')
+        axes[f'{lbl}_anode'] = ax
+
+        ax = fig.add_subplot(cell(r, 1))
+        _contourf_no_cracks(ax, TT*t_max, RR*Rca*1e6,
+                            p['cathode'], levels=100, cmap=cmap, norm=c_norm)
+        style_axis(ax, f'{lbl} Cathode', 'Time [$s$]', 'Radial [µm]')
+        axes[f'{lbl}_cathode'] = ax
+
+        ax = fig.add_subplot(cell(r, 2))
+        _contourf_no_cracks(ax, TT*t_max, RR*Ran*1e6,
+                            np.abs(p['anode'] - c_true_anode),
+                            levels=100, cmap=err_cmap, norm=model_err_norm[lbl])
+        style_axis(ax, f'{lbl} Anode |err|', 'Time [$s$]', 'Radial [µm]')
+        axes[f'{lbl}_err_anode'] = ax
+
+        ax = fig.add_subplot(cell(r, 3))
+        _contourf_no_cracks(ax, TT*t_max, RR*Rca*1e6,
+                            np.abs(p['cathode'] - c_true_cathode),
+                            levels=100, cmap=err_cmap, norm=model_err_norm[lbl])
+        style_axis(ax, f'{lbl} Cathode |err|', 'Time [$s$]', 'Radial [µm]')
+        axes[f'{lbl}_err_cathode'] = ax
+
+    # ─────────────────── bottom row (line plots) ────────────────────
+    last = n_rows - 1
+
+    ax = fig.add_subplot(cell(last, 0))
+    ax.plot(t*t_max, func_I, color=gt_colour)
+    style_axis(ax, 'Applied Current', 'Time [$s$]', r'$I\,\mathrm{[A]}$')
+    axes['current'] = ax
+
+    ax = fig.add_subplot(cell(last, 1))
+    ax.plot(t*t_max, V_true, lw=2, color=gt_colour, label='Ground Truth')
+    for p, lbl in zip(pred_sets, pred_labels):
+        ax.plot(t*t_max, p['V'], '--', color=label_colour[lbl], label=lbl)
+    style_axis(ax, 'Cell Voltage', 'Time [$s$]', r'$V\,\mathrm{[V]}$')
+    axes['voltage'] = ax
+
+    ax = fig.add_subplot(cell(last, 2))
+    for p, lbl in zip(pred_sets, pred_labels):
+        ax.plot(t*t_max, np.abs(p['V']-V_true)*1e3,
+                color=label_colour[lbl], label=f'{lbl} |V-err|')
+    style_axis(ax, 'Absolute Voltage Error', 'Time [$s$]', 'Error [mV]')
+    axes['voltage_error'] = ax
+
+    # legend (col‑3, bottom row)
+    ax_leg = fig.add_subplot(cell(last, 3))
+    ax_leg.axis('off')
+    handles = ([Line2D([], [], lw=2, color=gt_colour, label='Ground Truth')] +
+               [Line2D([], [], lw=2, color=label_colour[lbl], label=lbl)
+                for lbl in pred_labels])
+    ax_leg.legend(handles, [h.get_label() for h in handles],
+                  loc='center', frameon=False, fontsize=8, handlelength=3)
+    axes['legend'] = ax_leg
+
+    # ─────────────────── tidy up ────────────────────────────────────
+    radial_axes = [axes['true_anode'], axes['true_cathode']] \
+                  + [axes[f'{lbl}_anode']   for lbl in pred_labels] \
+                  + [axes[f'{lbl}_cathode'] for lbl in pred_labels] \
+                  + [axes[f'{lbl}_err_anode'] for lbl in pred_labels] \
+                  + [axes[f'{lbl}_err_cathode'] for lbl in pred_labels]
+    fig.align_ylabels(radial_axes)
+
+    fig.tight_layout(rect=[0, 0.03, 1, 1])
+    return fig, axes
+
+# ── main figure builder ───────────────────────────────────────────────
+def create_plot_paperb(
+        pred_sets,
+        c_true_anode, c_true_cathode,
+        func_I, V_true,
+        t_max, Ran, Rca,
+        pred_labels=None,
+        cmap='viridis', err_cmap='plasma'):
+    """
+    Compact 5×4 Elsevier‑width multi‑panel plot.
+    """
+
+    # ───────────────────── basics ───────────────────────────────────
+    n_pred = len(pred_sets)                       # rows with predictions
+    if pred_labels is None:
+        pred_labels = [f'Pred-{i+1}' for i in range(n_pred)]
+    if len(pred_labels) != n_pred:
+        raise ValueError('pred_labels length must match pred_sets length')
+
+    gt_colour   = 'k'
+    pred_cols   = sns.color_palette("colorblind", n_pred)
+    label_col   = {'Ground Truth': gt_colour,
+                   **dict(zip(pred_labels, pred_cols))}
+
+    # meshes
+    R, T = c_true_anode.shape
+    t  = np.linspace(0, 1, T)
+    r  = np.linspace(0, 1, R)
+    TT, RR = np.meshgrid(t, r)
+
+    # norms
+    a_norm = Normalize(np.min([c_true_anode]   + [p['anode']   for p in pred_sets]),
+                       np.max([c_true_anode]   + [p['anode']   for p in pred_sets]))
+    c_norm = Normalize(np.min([c_true_cathode] + [p['cathode'] for p in pred_sets]),
+                       np.max([c_true_cathode] + [p['cathode'] for p in pred_sets]))
+    err_norm = {lbl: Normalize(0,
+                               np.max([np.abs(p['anode']   - c_true_anode),
+                                       np.abs(p['cathode'] - c_true_cathode)]))
+                for p, lbl in zip(pred_sets, pred_labels)}
+
+    # ───────────────────── figure & GridSpec ────────────────────────
+    mm = 1 / 25.4
+    fig_w = 190 * mm                     # 190 mm Elsevier full width
+    row_h = 42  * mm                     # ~42 mm per row
+    n_rows = n_pred + 2                  # GT row + n_pred + line‑plot row
+    fig = plt.figure(figsize=(fig_w, row_h * n_rows))
+
+    gs = gridspec.GridSpec(
+        n_rows, 4, height_ratios=[1]*n_rows, width_ratios=[1, 1, 1, 1],
+        hspace=0.4, wspace=0.25, figure=fig
+    )
+    cell = lambda r, c: gs[r, c]
+    axes = {}
+
+    # helpers --------------------------------------------------------
+    def style(ax, title=None, xlab=False, ylab=False):
+        if title is not None:
+            ax.set_title(title, fontsize=10, pad=4)
+        if ylab:
+            ax.set_ylabel('Radial [µm]', fontsize=8)
+        if xlab:
+            ax.set_xlabel('Time [$s$]', fontsize=8)
+        ax.tick_params(axis='both', labelsize=7)
+
+    # column titles (only once, first row) --------------------------
+    col_titles = ['Anode', 'Cathode', 'Anode |err|', 'Cathode |err|']
+
+    # row‑0 : ground truth + c‑bars & e‑bars -------------------------
+    row_title_x = 0.05   # figure‑fraction x‑position for row labels
+    def add_row_label(row, text):
+        ax0 = fig.add_subplot(cell(row, 0))
+        bbox = ax0.get_position()
+        fig.text(row_title_x, (bbox.y0 + bbox.y1)/2, text,
+                 va='center', ha='left', fontsize=10, rotation=90)
+        ax0.remove()  # we only used it for placement
+
+    add_row_label(0, 'Ground Truth')
+
+    # Ground‑truth Anode
+    ax = fig.add_subplot(cell(0, 0))
+    _contourf_no_cracks(ax, TT*t_max, RR*Ran*1e6,
+                        c_true_anode, levels=100, cmap=cmap, norm=a_norm)
+    style(ax, col_titles[0], xlab=False, ylab=True)
+    axes['true_anode'] = ax
+
+    # Ground‑truth Cathode
+    ax = fig.add_subplot(cell(0, 1))
+    _contourf_no_cracks(ax, TT*t_max, RR*Rca*1e6,
+                        c_true_cathode, levels=100, cmap=cmap, norm=c_norm)
+    style(ax, col_titles[1], xlab=False, ylab=False)
+    axes['true_cathode'] = ax
+
+    # concentration bars (row‑0, col‑2 cell bbox)
+    tmp = fig.add_subplot(cell(0, 2)); bbox_c = tmp.get_position(); tmp.remove()
+    bar_h, gap = 0.022, 0.05
+    y = bbox_c.y0 + bbox_c.height - bar_h
+    cax = fig.add_axes([bbox_c.x0, y, bbox_c.width, bar_h])
+    cb  = fig.colorbar(ScalarMappable(norm=a_norm, cmap=cmap),
+                       cax=cax, orientation='horizontal')
+    cb.ax.set_title(r'Concentration Anode [$\mathrm{mol\,m^{-3}}$]', fontsize=7)
+    cb.ax.tick_params(labelsize=7)
+    y -= bar_h + gap
+    cax = fig.add_axes([bbox_c.x0, y, bbox_c.width, bar_h])
+    cb  = fig.colorbar(ScalarMappable(norm=c_norm, cmap=cmap),
+                       cax=cax, orientation='horizontal')
+    cb.ax.set_title(r'Concentration Cathode [$\mathrm{mol\,m^{-3}}$]', fontsize=7)
+    cb.ax.tick_params(labelsize=7)
+
+    # error bars (row‑0, col‑3 cell bbox)
+    tmp = fig.add_subplot(cell(0, 3)); bbox_e = tmp.get_position(); tmp.remove()
+    bar_h, spacing = 0.014, 0.035
+    for i, lbl in enumerate(reversed(pred_labels)):
+        cax = fig.add_axes([bbox_e.x0,
+                            bbox_e.y0 + i*(bar_h + spacing),
+                            bbox_e.width, bar_h])
+        cb = fig.colorbar(ScalarMappable(norm=err_norm[lbl], cmap=err_cmap),
+                          cax=cax, orientation='horizontal')
+        cb.ax.set_title(fr'{lbl} $|err|$ [$\mathrm{{mol\,m^{{-3}}}}$]', fontsize=7)
+        cb.ax.tick_params(labelsize=7)
+
+    # ----------------------------------------------------------------
+    # prediction rows (rows 1 … n_pred)
+    for r, (p, lbl) in enumerate(zip(pred_sets, pred_labels), start=1):
+        add_row_label(r, lbl)
+
+        # Anode
+        ax = fig.add_subplot(cell(r, 0))
+        _contourf_no_cracks(ax, TT*t_max, RR*Ran*1e6,
+                            p['anode'], levels=100, cmap=cmap, norm=a_norm)
+        style(ax, None, xlab=False, ylab=True)
+        axes[f'{lbl}_anode'] = ax
+
+        # Cathode
+        ax = fig.add_subplot(cell(r, 1))
+        _contourf_no_cracks(ax, TT*t_max, RR*Rca*1e6,
+                            p['cathode'], levels=100, cmap=cmap, norm=c_norm)
+        style(ax, None, xlab=False, ylab=False)
+        axes[f'{lbl}_cathode'] = ax
+
+        # Anode error
+        ax = fig.add_subplot(cell(r, 2))
+        _contourf_no_cracks(ax, TT*t_max, RR*Ran*1e6,
+                            np.abs(p['anode'] - c_true_anode),
+                            levels=100, cmap=err_cmap, norm=err_norm[lbl])
+        style(ax, None, xlab=False, ylab=False)
+        axes[f'{lbl}_err_anode'] = ax
+
+        # Cathode error
+        ax = fig.add_subplot(cell(r, 3))
+        _contourf_no_cracks(ax, TT*t_max, RR*Rca*1e6,
+                            np.abs(p['cathode'] - c_true_cathode),
+                            levels=100, cmap=err_cmap, norm=err_norm[lbl])
+        style(ax, None, xlab=False, ylab=False)
+        axes[f'{lbl}_err_cathode'] = ax
+
+    # ----------------------------------------------------------------
+    # bottom row (row n_rows-1) : line plots & legend
+    last = n_rows - 1
+    add_row_label(last, '')   # keep left margin aligned
+
+    ax = fig.add_subplot(cell(last, 0))
+    ax.plot(t*t_max, func_I, color=gt_colour)
+    style(ax, 'Applied Current', xlab=True, ylab=True)
+    axes['current'] = ax
+
+    ax = fig.add_subplot(cell(last, 1))
+    ax.plot(t*t_max, V_true, lw=2, color=gt_colour, label='Ground Truth')
+    for p, lbl in zip(pred_sets, pred_labels):
+        ax.plot(t*t_max, p['V'], '--', color=label_col[lbl], label=lbl)
+    style(ax, 'Cell Voltage', xlab=True, ylab=True)
+    axes['voltage'] = ax
+
+    ax = fig.add_subplot(cell(last, 2))
+    for p, lbl in zip(pred_sets, pred_labels):
+        ax.plot(t*t_max, np.abs(p['V'] - V_true)*1e3,
+                color=label_col[lbl], label=f'{lbl} |V-err|')
+    style(ax, 'Absolute Voltage Error', xlab=True, ylab=True)
+    axes['voltage_error'] = ax
+
+    # legend
+    ax_leg = fig.add_subplot(cell(last, 3))
+    ax_leg.axis('off')
+    handles = ([Line2D([], [], lw=2, color=gt_colour, label='Ground Truth')] +
+               [Line2D([], [], lw=2, color=label_col[lbl], label=lbl)
+                for lbl in pred_labels])
+    ax_leg.legend(handles, [h.get_label() for h in handles],
+                  loc='center', frameon=False, fontsize=8, handlelength=3)
+    axes['legend'] = ax_leg
+
+    # ----------------------------------------------------------------
+    fig.tight_layout(rect=[0.06, 0.03, 1, 1])  # leave space for row labels
+    return fig, axes
+
+def create_plot_paperc(
+        pred_sets,
+        c_true_anode, c_true_cathode,
+        func_I, V_true,
+        t_max, Ran, Rca,
+        pred_labels=None,
+        cmap='viridis', err_cmap='plasma'):
+    """
+    Compact 5×4 Elsevier‑width multi‑panel plot.
+    """
+
+    # ───────────────────── basics ───────────────────────────────────
+    n_pred = len(pred_sets)                       # rows with predictions
+    if pred_labels is None:
+        pred_labels = [f'Pred-{i+1}' for i in range(n_pred)]
+    if len(pred_labels) != n_pred:
+        raise ValueError('pred_labels length must match pred_sets length')
+
+    gt_colour   = 'k'
+    pred_cols   = sns.color_palette("colorblind", n_pred)
+    label_col   = {'Ground Truth': gt_colour,
+                   **dict(zip(pred_labels, pred_cols))}
+
+    # meshes
+    R, T = c_true_anode.shape
+    t  = np.linspace(0, 1, T)
+    r  = np.linspace(0, 1, R)
+    TT, RR = np.meshgrid(t, r)
+
+    # norms
+    a_norm = Normalize(np.min([c_true_anode]   + [p['anode']   for p in pred_sets]),
+                       np.max([c_true_anode]   + [p['anode']   for p in pred_sets]))
+    c_norm = Normalize(np.min([c_true_cathode] + [p['cathode'] for p in pred_sets]),
+                       np.max([c_true_cathode] + [p['cathode'] for p in pred_sets]))
+    err_norm = {lbl: Normalize(0,
+                               np.max([np.abs(p['anode']   - c_true_anode),
+                                       np.abs(p['cathode'] - c_true_cathode)]))
+                for p, lbl in zip(pred_sets, pred_labels)}
+
+    # ───────────────────── figure & GridSpec ────────────────────────
+    mm = 1 / 25.4
+    fig_w = 190 * mm                     # 190 mm Elsevier full width
+    row_h = 40  * mm                     # ~40 mm per row
+    n_rows = n_pred + 2                  # GT row + n_pred + line‑plot row
+    fig = plt.figure(figsize=(fig_w, row_h * n_rows))
+
+    gs = gridspec.GridSpec(
+        n_rows, 4, height_ratios=[1]*n_rows, width_ratios=[1, 1, 1, 1],
+        hspace=0.4, wspace=0.25, figure=fig
+    )
+    cell = lambda r, c: gs[r, c]
+    axes = {}
+
+    # helpers --------------------------------------------------------
+    def style(ax, title=None, xlab=False, ylab=False):
+        if title is not None:
+            ax.set_title(title, fontsize=10, pad=4)
+        if ylab:
+            ax.set_ylabel('Radial [µm]', fontsize=8)
+            if title == 'Applied Current':
+                ax.set_ylabel(r'$I\;[\mathrm{A}]$', fontsize=8)
+            if title == 'Cell Voltage':
+                ax.set_ylabel(r'$V\;[\mathrm{V}]$', fontsize=8)
+            if title == 'Absolute Voltage Error':
+                ax.set_ylabel('Error [mV]', fontsize=8)
+        if xlab:
+            ax.set_xlabel('Time [$s$]', fontsize=8)
+        ax.tick_params(axis='both', labelsize=7)
+
+    # column titles (only once, first row) --------------------------
+    col_titles = ['Anode', 'Cathode', 'Anode |err|', 'Cathode |err|']
+
+    # row‑0 : ground truth + c‑bars & e‑bars -------------------------
+    row_title_x = 0.05   # figure‑fraction x‑position for row labels
+    def add_row_label(row, text):
+        ax0 = fig.add_subplot(cell(row, 0))
+        bbox = ax0.get_position()
+        fig.text(row_title_x, (bbox.y0 + bbox.y1)/2, text,
+                 va='center', ha='left', fontsize=10, rotation=90)
+        ax0.remove()  # we only used it for placement
+
+    add_row_label(3, 'Ground Truth')
+
+    # Ground‑truth Anode
+    ax = fig.add_subplot(cell(3, 0))
+    _contourf_no_cracks(ax, TT*t_max, RR*Ran*1e6,
+                        c_true_anode, levels=100, cmap=cmap, norm=a_norm)
+    style(ax, None, xlab=False, ylab=True)
+    axes['true_anode'] = ax
+
+    # Ground‑truth Cathode
+    ax = fig.add_subplot(cell(3, 1))
+    _contourf_no_cracks(ax, TT*t_max, RR*Rca*1e6,
+                        c_true_cathode, levels=100, cmap=cmap, norm=c_norm)
+    style(ax, None, xlab=False, ylab=False)
+    axes['true_cathode'] = ax
+
+    # concentration bars (row‑0, col‑2 cell bbox)
+    tmp = fig.add_subplot(cell(3, 2)); bbox_c = tmp.get_position(); tmp.remove()
+    bar_h, gap = 0.022, 0.05
+    y = bbox_c.y0 + bbox_c.height - bar_h
+    cax = fig.add_axes([bbox_c.x0, y, bbox_c.width, bar_h])
+    cb  = fig.colorbar(ScalarMappable(norm=a_norm, cmap=cmap),
+                       cax=cax, orientation='horizontal')
+    cb.ax.set_title(r'Concentration Anode [$\mathrm{mol\,m^{-3}}$]', fontsize=7)
+    cb.ax.tick_params(labelsize=7)
+    y -= bar_h + gap
+    cax = fig.add_axes([bbox_c.x0, y, bbox_c.width, bar_h])
+    cb  = fig.colorbar(ScalarMappable(norm=c_norm, cmap=cmap),
+                       cax=cax, orientation='horizontal')
+    cb.ax.set_title(r'Concentration Cathode [$\mathrm{mol\,m^{-3}}$]', fontsize=7)
+    cb.ax.tick_params(labelsize=7)
+
+    # error bars (row‑0, col‑3 cell bbox)
+    tmp = fig.add_subplot(cell(3, 3)); bbox_e = tmp.get_position(); tmp.remove()
+    bar_h, spacing = 0.014, 0.035
+    for i, lbl in enumerate(reversed(pred_labels)):
+        cax = fig.add_axes([bbox_e.x0,
+                            bbox_e.y0 + i*(bar_h + spacing),
+                            bbox_e.width, bar_h])
+        cb = fig.colorbar(ScalarMappable(norm=err_norm[lbl], cmap=err_cmap),
+                          cax=cax, orientation='horizontal')
+        cb.ax.set_title(fr'{lbl} $|err|$ [$\mathrm{{mol\,m^{{-3}}}}$]', fontsize=7)
+        cb.ax.tick_params(labelsize=7)
+
+    # ----------------------------------------------------------------
+    # prediction rows (rows 1 … n_pred)
+    for r, (p, lbl) in enumerate(zip(pred_sets, pred_labels)): #, start=1):
+        add_row_label(r, lbl)
+
+        
+
+        # Anode
+        ax = fig.add_subplot(cell(r, 0))
+        _contourf_no_cracks(ax, TT*t_max, RR*Ran*1e6,
+                            p['anode'], levels=100, cmap=cmap, norm=a_norm)
+        style(ax, None, xlab=False, ylab=True)
+        axes[f'{lbl}_anode'] = ax
+
+        if r == 0:
+            style(ax, col_titles[0], xlab=False, ylab=False)
+
+        if r == 1:
+            style(ax, None, xlab=True, ylab = True)
+
+        # Cathode
+        ax = fig.add_subplot(cell(r, 1))
+        _contourf_no_cracks(ax, TT*t_max, RR*Rca*1e6,
+                            p['cathode'], levels=100, cmap=cmap, norm=c_norm)
+        style(ax, None, xlab=False, ylab=False)
+        axes[f'{lbl}_cathode'] = ax
+
+        if r == 0:
+            style(ax, col_titles[1], xlab=False, ylab=False)
+
+        if r == 1:
+            style(ax, None, xlab=True, ylab = True)
+
+        # Anode error
+        ax = fig.add_subplot(cell(r, 2))
+        _contourf_no_cracks(ax, TT*t_max, RR*Ran*1e6,
+                            np.abs(p['anode'] - c_true_anode),
+                            levels=100, cmap=err_cmap, norm=err_norm[lbl])
+        style(ax, None, xlab=False, ylab=False)
+        axes[f'{lbl}_err_anode'] = ax
+
+        if r == 0:
+            style(ax, col_titles[2], xlab=False, ylab=False)
+
+        if r == 1:
+            style(ax, None, xlab=True, ylab = True)
+
+        # Cathode error
+        ax = fig.add_subplot(cell(r, 3))
+        _contourf_no_cracks(ax, TT*t_max, RR*Rca*1e6,
+                            np.abs(p['cathode'] - c_true_cathode),
+                            levels=100, cmap=err_cmap, norm=err_norm[lbl])
+        style(ax, None, xlab=False, ylab=False)
+        axes[f'{lbl}_err_cathode'] = ax
+
+        if r == 0:
+            style(ax, col_titles[3], xlab=False, ylab=False)
+
+        if r == 1:
+            style(ax, None, xlab=True, ylab = True)
+
+    # ----------------------------------------------------------------
+    # bottom row (row n_rows-1) : line plots & legend
+    last = n_rows - 1
+    add_row_label(last, '')   # keep left margin aligned
+
+    ax = fig.add_subplot(cell(last, 0))
+    ax.plot(t*t_max, func_I, color=gt_colour)
+    style(ax, 'Applied Current', xlab=True, ylab=True)
+    axes['current'] = ax
+
+    ax = fig.add_subplot(cell(last, 1))
+    ax.plot(t*t_max, V_true, lw=2, color=gt_colour, label='Ground Truth')
+    for p, lbl in zip(pred_sets, pred_labels):
+        ax.plot(t*t_max, p['V'], '--', color=label_col[lbl], label=lbl)
+    style(ax, 'Cell Voltage', xlab=True, ylab=True)
+    axes['voltage'] = ax
+
+    ax = fig.add_subplot(cell(last, 2))
+    for p, lbl in zip(pred_sets, pred_labels):
+        ax.plot(t*t_max, np.abs(p['V'] - V_true)*1e3,
+                color=label_col[lbl], label=f'{lbl} |V-err|')
+    style(ax, 'Absolute Voltage Error', xlab=True, ylab=True)
+    axes['voltage_error'] = ax
+
+    # legend
+    ax_leg = fig.add_subplot(cell(last, 3))
+    ax_leg.axis('off')
+    handles = ([Line2D([], [], lw=2, color=gt_colour, label='Ground Truth')] +
+               [Line2D([], [], lw=2, color=label_col[lbl], label=lbl)
+                for lbl in pred_labels])
+    ax_leg.legend(handles, [h.get_label() for h in handles],
+                  loc='center', frameon=False, fontsize=8, handlelength=3)
+    axes['legend'] = ax_leg
+
+    # ----------------------------------------------------------------
+    fig.tight_layout(rect=[0.06, 0.03, 1, 1])  # leave space for row labels
+    return fig, axes
