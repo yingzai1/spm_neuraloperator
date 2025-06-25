@@ -66,8 +66,8 @@ def ConstantCurrent(value):
 
 def TriangleCurrent(value):
     def f(t):
-        t1 = 900
-        t2 = 1800
+        t1 = 1800
+        t2 = 3600
         return np.where(t <= t1, t / t1, (t2 - t) / t1) * value
     return f
 

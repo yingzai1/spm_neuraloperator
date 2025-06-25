@@ -7,8 +7,8 @@ import numpy as np
 def run_idx(idx: int):
     try:
         completed = subprocess.run(
-            # ["taskset", "-c", "0", "python", "run_one_estimate_dlu.py", str(idx)],
-            ["python", "run_one_estimate_dlu.py", str(idx)],
+            ["taskset", "-c", "0", "python", "run_one_estimate_dlu.py", str(idx)],
+            # ["python", "run_one_estimate_dlu.py", str(idx)],
             text=True,
             capture_output=True,   # keep both stdout **and** stderr
             check=True,

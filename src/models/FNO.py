@@ -37,14 +37,16 @@ class FourierLayer(nn.Module):
         W_half = x_ft.shape[2]
         h_modes = min(self.k_modes, H)
         w_modes = min(self.k_modes, W_half)
-        x_ft_trunc = x_ft[:, :h_modes, :w_modes, :]
+        x_ft_bottom_row = x_ft[:, :h_modes, :w_modes, :]
+        x_ft_top_row = x_ft[:, -h_modes:, :w_modes, :]
+        x_ft_trunc = jnp.concatenate((x_ft_bottom_row, x_ft_top_row), axis=1)
 
         # Create trainable parameters for Fourier layer
         # Weight shape: (h_modes, w_modes, in_channels, out_channels)
         # We represent weights as complex: two real-valued parameters for real and imag parts.
         in_channels = x.shape[-1]
-        W_real = self.param('W_real', nn.initializers.he_normal(), (h_modes, w_modes, in_channels, self.out_channels))
-        W_imag = self.param('W_imag', nn.initializers.zeros, (h_modes, w_modes, in_channels, self.out_channels))
+        W_real = self.param('W_real', nn.initializers.he_normal(), (2*h_modes, w_modes, in_channels, self.out_channels))
+        W_imag = self.param('W_imag', nn.initializers.zeros, (2*h_modes, w_modes, in_channels, self.out_channels))
 
         # Apply weights in Fourier space
         # Expand x_ft_trunc to (batch, h_modes, w_modes, in_channels) and do a complex matmul
@@ -73,10 +75,16 @@ class FourierLayer(nn.Module):
 
         # Pad back to original Fourier size
         # Insert zeros for the truncated frequencies:
-        pad_h = H - h_modes
-        pad_w = W_half - w_modes
-        out_ft = jnp.pad(out_complex, ((0,0),(0,pad_h),(0,pad_w),(0,0),(0,0))) 
-        # out_ft now is (batch, H, W//2+1, out_channels, 2)
+        # pad_h = H - 2*h_modes
+        # pad_w = W_half - w_modes
+        # create an all-zero tensor of the full FFT size
+        out_ft = jnp.zeros((x.shape[0], H, W_half, self.out_channels, 2),
+                           dtype=out_complex.dtype)
+        # insert the +kh rows (0 … k-1)
+        out_ft = out_ft.at[:,  :h_modes, :w_modes, :, :].set(out_complex[:, :h_modes, ...])
+
+        # insert the –kh rows (H-k … H-1)
+        out_ft = out_ft.at[:, -h_modes:, :w_modes, :, :].set(out_complex[:, h_modes:, ...])
 
         # Convert back to complex
         out_ft_complex = out_ft[..., 0] + 1j * out_ft[..., 1]
