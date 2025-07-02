@@ -23,7 +23,7 @@ def train_test_split(data, N_total, test_ratio=0.1, seed=None):
 
     return train_data, test_data
 
-def  normalise_diffusion(D, lower=-15, upper=-12):
+def  normalise_diffusion(D, lower=-18, upper=-14):
     return 2*(D-lower)/(upper-lower) - 1
 
 
@@ -152,6 +152,64 @@ def data_loader(X: np.ndarray, D, Y: np.ndarray, batch_size: int, shuffle: bool 
     for start_idx in range(0, num_samples, batch_size):
         batch_indices = indices[start_idx:start_idx+batch_size]
         yield X[batch_indices],D[batch_indices], Y[batch_indices]
+
+def data_loader_pe(X: np.ndarray, D,R, Y: np.ndarray, batch_size: int, shuffle: bool = True):
+    """
+    A simple data loader that yields batches of preprocessed FNO data.
+    
+    Parameters
+    ----------
+    X : jnp.ndarray
+        Preprocessed input data of shape (num_samples, 24,85,4).
+    Y : jnp.ndarray
+        Preprocessed target data of shape (num_samples, 24,85,1).
+    batch_size : int
+        Number of samples per batch.
+    shuffle : bool
+        Whether to shuffle the dataset before yielding batches.
+
+    Yields
+    ------
+    (X_batch, Y_batch) : tuple of jnp.ndarray
+        X_batch : (batch_size, 24,85,4)
+        Y_batch : (batch_size, 24,85,1)
+    """
+    num_samples = X.shape[0]
+    indices = np.arange(num_samples)
+    if shuffle:
+        np.random.shuffle(indices)
+    for start_idx in range(0, num_samples, batch_size):
+        batch_indices = indices[start_idx:start_idx+batch_size]
+        yield X[batch_indices],D[batch_indices], R[batch_indices], Y[batch_indices]
+
+def data_loader_pe2(X: np.ndarray, D,R,L,eps,A, Y: np.ndarray, batch_size: int, shuffle: bool = True):
+    """
+    A simple data loader that yields batches of preprocessed FNO data.
+    
+    Parameters
+    ----------
+    X : jnp.ndarray
+        Preprocessed input data of shape (num_samples, 24,85,4).
+    Y : jnp.ndarray
+        Preprocessed target data of shape (num_samples, 24,85,1).
+    batch_size : int
+        Number of samples per batch.
+    shuffle : bool
+        Whether to shuffle the dataset before yielding batches.
+
+    Yields
+    ------
+    (X_batch, Y_batch) : tuple of jnp.ndarray
+        X_batch : (batch_size, 24,85,4)
+        Y_batch : (batch_size, 24,85,1)
+    """
+    num_samples = X.shape[0]
+    indices = np.arange(num_samples)
+    if shuffle:
+        np.random.shuffle(indices)
+    for start_idx in range(0, num_samples, batch_size):
+        batch_indices = indices[start_idx:start_idx+batch_size]
+        yield X[batch_indices],D[batch_indices], R[batch_indices], L[batch_indices], eps[batch_indices], A[batch_indices], Y[batch_indices]
 
 
 @functools.partial(jax.jit, static_argnames=("padding_r", "padding_t"))  # everything is fused & runs on the accelerator

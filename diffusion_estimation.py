@@ -15,7 +15,7 @@ from src.util.FNO_util import preprocess_data, train_test_split, remove_padding
 from src.util.postprocess import filter_anode_cathode, calc_error_metrics, calc_error_metrics_all
 from src.inference.parameter_estimation import get_jnp_U_OCP_anode, get_jnp_U_OCP_cathode
 
-LOG10_D_MIN, LOG10_D_MAX = -15.0, -12.0
+LOG10_D_MIN, LOG10_D_MAX = -18.0, -14.0
 EPS = 1e-6
 EPS_pybamm = 1e-6  # PyBaMM uses this value for numerical stability
 
