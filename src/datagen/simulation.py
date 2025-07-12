@@ -18,7 +18,7 @@ def run_single_simulation(task_payload):
 
     model.events = []
     param_set = pybamm.ParameterValues(config["parameter_set"])
-    short_to_full = {name: info[0] for name, info in config["parameter_bounds"].items()}
+    short_to_full = {name: info[0] for name, info in (config.get("parameter_bounds", {}) or {}).items()}
 
     for short_name, value in params.items():
         if short_name == "A":

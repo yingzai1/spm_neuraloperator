@@ -3,7 +3,7 @@ from scipy.stats import qmc
 
 def generate_sobol_samples(samples_per_soc, config):
     """Generates Sobol samples based on the provided configuration."""
-    param_info = config["parameter_bounds"]
+    param_info = config.get("parameter_bounds", {}) or {}
     soc_levels = np.asarray(config["soc_levels"])
     n_total = len(soc_levels) * samples_per_soc
 
