@@ -83,6 +83,7 @@ def compare_npz_files(file1_path, file2_path):
             print("Files have the same set of arrays. Now checking contents...")
 
             overall_differences_found = False
+            identical_arrays = []
             all_keys = sorted(list(files1))
 
             # --- 2. Iterate through each array and compare them ---
@@ -92,6 +93,7 @@ def compare_npz_files(file1_path, file2_path):
 
                 # Check for exact equality first, as it's the fastest.
                 if np.array_equal(arr1, arr2):
+                    identical_arrays.append(key)
                     continue
 
                 # If not exactly equal, there is a difference.
@@ -105,11 +107,28 @@ def compare_npz_files(file1_path, file2_path):
                 # --- 2b. Compare shapes ---
                 if arr1.shape != arr2.shape:
                     print(f"  - Shape mismatch: {arr1.shape} vs {arr2.shape}")
+                    print(f"    - File 1 dimensions: {len(arr1.shape)}D array with shape {arr1.shape}")
+                    print(f"    - File 2 dimensions: {len(arr2.shape)}D array with shape {arr2.shape}")
+                    if len(arr1.shape) == len(arr2.shape):
+                        print(f"    - Same number of dimensions ({len(arr1.shape)}D), but different sizes")
+                        for i, (s1, s2) in enumerate(zip(arr1.shape, arr2.shape)):
+                            if s1 != s2:
+                                print(f"      - Dimension {i}: {s1} vs {s2}")
+                    else:
+                        print(f"    - Different number of dimensions: {len(arr1.shape)}D vs {len(arr2.shape)}D")
                     # If shapes differ, statistical comparison is not meaningful.
                     continue
 
                 # --- 2c. Perform statistical comparison if shapes are the same ---
                 statistical_comparison(arr1, arr2)
+
+            # --- 3. Report identical arrays ---
+            if identical_arrays:
+                print(f"\n✅ IDENTICAL ARRAYS ({len(identical_arrays)} total):")
+                for key in identical_arrays:
+                    arr_shape = data1[key].shape
+                    arr_dtype = data1[key].dtype
+                    print(f"  - '{key}': shape={arr_shape}, dtype={arr_dtype}")
 
             print("-" * 40)
             if not overall_differences_found:
