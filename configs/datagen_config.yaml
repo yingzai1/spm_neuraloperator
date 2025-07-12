@@ -1,0 +1,40 @@
+datagen:
+  # --- General Experiment Setup ---
+  output_dir: "data/dataset"
+  parameter_set: "Prada2013"
+  n_workers: 60
+
+  # --- Parameter Sampling ---
+  sobol_samples_per_soc: [2200]
+  # soc_levels: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+  soc_levels: [0.5]
+
+  # --- Key mapping for output file ---
+  # Maps internal parameter names to the desired names in the output .npz file.
+  # If a parameter is not in this map, it will not be saved.
+  param_key_map:
+    D_n: "Dan"
+    D_p: "Dca"
+
+  # --- Current Profiles ---
+  #current_families: ["CC", "GRF", "PLS", "Triangle"]
+  current_families: ["CC"]
+
+  # --- PyBaMM Simulation Settings ---
+  pybamm_settings:
+    t_max_s: 3600
+    t_num_points: 75
+    model: "SPM"
+    solver: "CasadiSolver"
+
+  # --- Model Parameter Bounds for Sobol Sampling ---
+  parameter_bounds:
+    # D_n: ["Negative particle diffusivity [m2.s-1]", [1.0e-18, 1.0e-14]]
+    # D_p: ["Positive particle diffusivity [m2.s-1]", [1.0e-18, 1.0e-14]]
+    # R_n: ["Negative particle radius [m]", [4.0e-6, 1.5e-5]]
+    # R_p: ["Positive particle radius [m]", [1.0e-8, 1.5e-5]]
+    # eps_n: ["Negative electrode active material volume fraction", [0.3, 0.8]]
+    # eps_p: ["Positive electrode active material volume fraction", [0.3, 0.8]]
+    # L_n: ["Negative electrode thickness [m]", [2.0e-5, 10.0e-5]]
+    # L_p: ["Positive electrode thickness [m]", [2.0e-5, 10.0e-5]]
+    # A: ["Electrode area [m2]", [5.0e-3, 5.0e-1]]
