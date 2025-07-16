@@ -4,11 +4,11 @@ import numpy as np
 from src.datagen import sampling, processing
 
 
-def main():
+def main(config_path: str):
 
     """Main script to drive the data generation workflow."""
     # 1. Load Configuration
-    with open("configs/datagen_config.yaml", 'r') as f:
+    with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
     
     cfg = config['datagen']
@@ -45,4 +45,6 @@ def main():
                 print(f"No successful simulations for family {family}.")
 
 if __name__ == "__main__":
-    main()
+    config_paths = ["configs/datagen_config.yaml"]
+    for f in config_paths:
+        main(f)

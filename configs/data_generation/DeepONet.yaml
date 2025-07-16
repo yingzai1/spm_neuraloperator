@@ -1,13 +1,13 @@
 datagen:
   # --- General Experiment Setup ---
-  output_dir: "data/dataset/FNO"
+  output_dir: "data/dataset/DeepONet"
   parameter_set: "Prada2013"
   n_workers: 60
 
   # --- Parameter Sampling ---
-  sobol_samples_per_soc: [1000]
-  soc_levels: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-  # soc_levels: [0.5]
+  sobol_samples_per_soc: [2200]
+  # soc_levels: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+  soc_levels: [0.5]
 
   # --- Key mapping for output file ---
   # Maps internal parameter names to the desired names in the output .npz file.
@@ -17,7 +17,8 @@ datagen:
     D_p: "Dca"
 
   # --- Current Profiles ---
-  current_families: ["CC", "GRF", "PLS", "Triangle"]
+  #current_families: ["CC", "GRF", "PLS", "Triangle"]
+  current_families: ["CC"]
 
   # --- PyBaMM Simulation Settings ---
   pybamm_settings:

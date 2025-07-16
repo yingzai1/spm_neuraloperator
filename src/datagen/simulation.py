@@ -46,6 +46,7 @@ def run_single_simulation(task_payload):
                 mapped_params[new_key] = v
 
         # Add default diffusivity values if they weren't sampled
+        # TODO: make D param colum  the same
         if 'Dan' not in mapped_params and 'Dan' in param_key_map.values():
             mapped_params['Dan'] = np.log10(param_set["Negative particle diffusivity [m2.s-1]"])
         if 'Dca' not in mapped_params and 'Dca' in param_key_map.values():
