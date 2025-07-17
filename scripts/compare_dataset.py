@@ -9,13 +9,28 @@ except ImportError:
     print("Error: SciPy library not found. Please install it using 'pip install scipy'")
     sys.exit(1)
 
+
+def print_array_stats(arr_name, arr, file_path):
+    """Prints the shape, mean, and std of a given array."""
+    print(f"\n[INFO] Array '{arr_name}' in file '{file_path}':")
+    print(f"  - Shape: {arr.shape}")
+    if np.issubdtype(arr.dtype, np.number):
+        mean = arr.mean()
+        std = arr.std()
+        print(f"  - Stats: mean={mean:.6f}, std={std:.6f}")
+    else:
+        print("  - Stats: Not a numeric array.")
+
+
 def statistical_comparison(arr1, arr2):
     """
     Performs a statistical comparison between two numerical arrays.
     Compares mean, std, and performs a Kolmogorov-Smirnov test.
     """
     # This comparison only makes sense for numeric data.
-    if not np.issubdtype(arr1.dtype, np.number) or not np.issubdtype(arr2.dtype, np.number):
+    if not np.issubdtype(arr1.dtype, np.number) or not np.issubdtype(
+        arr2.dtype, np.number
+    ):
         print("  - Content: Arrays are not numeric. Cannot perform statistical tests.")
         return
 
@@ -70,27 +85,30 @@ def compare_npz_files(file1_path, file2_path):
         with np.load(file1_path) as data1, np.load(file2_path) as data2:
             files1 = set(data1.files)
             files2 = set(data2.files)
-
-            # --- 1. Compare the set of array names (keys) ---
-            if files1 != files2:
-                print("Files have different sets of arrays.")
-                if files1 - files2:
-                    print(f"  Arrays only in '{file1_path}': {sorted(list(files1 - files2))}")
-                if files2 - files1:
-                    print(f"  Arrays only in '{file2_path}': {sorted(list(files2 - files1))}")
-                return False
-
-            print("Files have the same set of arrays. Now checking contents...")
-
+            all_keys = sorted(list(files1.union(files2)))
             overall_differences_found = False
             identical_arrays = []
-            all_keys = sorted(list(files1))
 
-            # --- 2. Iterate through each array and compare them ---
+            print("--- Comparing all arrays in both files ---")
+
+            # --- 1. Iterate through each array and compare them ---
             for key in all_keys:
-                arr1 = data1[key]
-                arr2 = data2[key]
+                arr1 = data1.get(key)
+                arr2 = data2.get(key)
 
+                # Case 1: Array only in file 1
+                if arr1 is not None and arr2 is None:
+                    print_array_stats(key, arr1, file1_path)
+                    overall_differences_found = True
+                    continue
+
+                # Case 2: Array only in file 2
+                if arr2 is not None and arr1 is None:
+                    print_array_stats(key, arr2, file2_path)
+                    overall_differences_found = True
+                    continue
+
+                # Case 3: Array in both files
                 # Check for exact equality first, as it's the fastest.
                 if np.array_equal(arr1, arr2):
                     identical_arrays.append(key)
@@ -100,29 +118,21 @@ def compare_npz_files(file1_path, file2_path):
                 overall_differences_found = True
                 print(f"\n[DIFFERENCE] Array '{key}':")
 
-                # --- 2a. Compare data types (dtypes) ---
+                # --- Compare data types (dtypes) ---
                 if arr1.dtype != arr2.dtype:
                     print(f"  - Dtype mismatch: {arr1.dtype} vs {arr2.dtype}")
 
-                # --- 2b. Compare shapes ---
+                # --- Compare shapes ---
                 if arr1.shape != arr2.shape:
-                    print(f"  - Shape mismatch: {arr1.shape} vs {arr2.shape}")
-                    print(f"    - File 1 dimensions: {len(arr1.shape)}D array with shape {arr1.shape}")
-                    print(f"    - File 2 dimensions: {len(arr2.shape)}D array with shape {arr2.shape}")
-                    if len(arr1.shape) == len(arr2.shape):
-                        print(f"    - Same number of dimensions ({len(arr1.shape)}D), but different sizes")
-                        for i, (s1, s2) in enumerate(zip(arr1.shape, arr2.shape)):
-                            if s1 != s2:
-                                print(f"      - Dimension {i}: {s1} vs {s2}")
-                    else:
-                        print(f"    - Different number of dimensions: {len(arr1.shape)}D vs {len(arr2.shape)}D")
-                    # If shapes differ, statistical comparison is not meaningful.
+                    print("  - Shape mismatch detected.")
+                    print_array_stats(key, arr1, file1_path)
+                    print_array_stats(key, arr2, file2_path)
                     continue
 
-                # --- 2c. Perform statistical comparison if shapes are the same ---
+                # --- Perform statistical comparison if shapes are the same ---
                 statistical_comparison(arr1, arr2)
 
-            # --- 3. Report identical arrays ---
+            # --- 2. Report identical arrays ---
             if identical_arrays:
                 print(f"\n✅ IDENTICAL ARRAYS ({len(identical_arrays)} total):")
                 for key in identical_arrays:
@@ -145,9 +155,10 @@ def compare_npz_files(file1_path, file2_path):
         print(f"An unexpected error occurred: {e}")
         return False
 
+
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python compare_npz.py <file1.npz> <file2.npz>")
+        print("Usage: python compare_dataset.py <file1.npz> <file2.npz>")
         sys.exit(1)
 
     file1 = sys.argv[1]
