@@ -7,3 +7,5 @@ trained_models/*
 param_est_files/*
 *.npz
 old/trained_models/*
+models/*
+old/

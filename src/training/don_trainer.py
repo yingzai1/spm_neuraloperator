@@ -112,7 +112,7 @@ class DONTrainer(BaseTrainer):
     
     def create_model(self):
         """Create DeepONet model."""
-        from old.src.models.DON import DeepONet
+        from ..models import DeepONet
         
         model_config = self.config["training"]["model"]
         
@@ -154,7 +154,7 @@ class DONTrainer(BaseTrainer):
         if self.train_I is None:
             self.preprocess_data(*self.load_dataset())
         
-        from old.src.models.DON import generate_trunk_points
+        from ..models import generate_trunk_points
         
         preprocessing_config = self.config["training"]["preprocessing"]
         training_config = self.config["training"]["training"]

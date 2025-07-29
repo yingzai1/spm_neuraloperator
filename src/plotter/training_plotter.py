@@ -76,7 +76,16 @@ class TrainingPlotter(BasePlotter):
         
         # Get battery parameters
         import pybamm
-        param_set = pybamm.ParameterValues(dataset_config["parameter_name"])
+        dataset_config = config["training"]["dataset"]
+        
+        # Handle array-based parameter names
+        parameter_names = dataset_config["parameter_name"]
+        if isinstance(parameter_names, list):
+            parameter_name = parameter_names[0]
+        else:
+            parameter_name = parameter_names
+            
+        param_set = pybamm.ParameterValues(parameter_name)
         
         if electrode == "anode":
             c_max = param_set["Maximum concentration in negative electrode [mol.m-3]"]
@@ -215,7 +224,16 @@ class TrainingPlotter(BasePlotter):
         
         # Battery parameters
         import pybamm
-        param_set = pybamm.ParameterValues(dataset_config["parameter_name"])
+        dataset_config = config["training"]["dataset"]
+        
+        # Handle array-based parameter names
+        parameter_names = dataset_config["parameter_name"]
+        if isinstance(parameter_names, list):
+            parameter_name = parameter_names[0]
+        else:
+            parameter_name = parameter_names
+            
+        param_set = pybamm.ParameterValues(parameter_name)
         
         if electrode == "anode":
             c_max = param_set["Maximum concentration in negative electrode [mol.m-3]"]

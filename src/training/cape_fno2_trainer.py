@@ -109,14 +109,14 @@ class CAPEFNO2Trainer(BaseTrainer):
     
     def create_model(self):
         """Create CAPE-FNO2 model."""
-        from old.src.models.FNO import CAPE_FNO2
+        from ..models import CAPEFNO2
         
         model_config = self.config["training"]["model"]
         
-        # Input channels: (I, c0, r, t) = 4 channels
+        # Input channels: (I, c0, r, t) = 4 channels  
         input_channels = 4
         
-        return CAPE_FNO2(
+        return CAPEFNO2(
             k_modes=tuple(model_config["k_modes"]),
             input_channels=input_channels,
             fno_depth=model_config["fno_depth"],

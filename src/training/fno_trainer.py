@@ -36,14 +36,9 @@ class FNOTrainer(BaseTrainer):
     
     def create_model(self):
         """Create FNO model."""
-        from old.src.models.FNO import FNO
+        from ..models import FNO
         
         model_config = self.config["training"]["model"]
-        preprocessing_config = self.config["training"]["preprocessing"]
-        
-        # Input channels: (I, c0, r, t) = 4 channels
-        input_channels = 4
-        
         return FNO(
             k_modes=model_config["k_modes"],
             fno_depth=model_config["fno_depth"],

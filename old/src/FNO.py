@@ -50,7 +50,7 @@ t_max = 3600
 
 family = "GRF"
 N_total = 11000
-data = np.load(f"../data/{parameter_name}_{family}_{N_total}.npz")
+data = np.load(f"../../data/dataset/FNO-vanilla/{parameter_name}_{family}_{N_total}.npz")
 random_seed = 42
 test_ratio = 0.1
 

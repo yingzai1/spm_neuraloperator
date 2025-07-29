@@ -1,10 +1,13 @@
 training:
   model_name: "DON"
   dataset:
-    parameter_name: "Chen2020"
-    family: "Triangle"
+    # Support multiple parameter names and families for multi-dataset training
+    parameter_name: ["Chen2020"]  # Can be array: ["Chen2020", "Prada2013"]
+    family: ["CC"]  # Can be array: ["GRF", "CC", "Triangle"]
     n_total: 2200
-    data_path: "data/dataset/DeepONet/{parameter_name}_{family}_{n_total}.npz"
+    # data_path will be constructed automatically from parameter_name and family arrays
+    # TODO: change DeepONet to DON everywhere
+    data_dir: "data/dataset/DeepONet"  # Base directory for datasets
     test_ratio: 0.1
     random_seed: 42
   

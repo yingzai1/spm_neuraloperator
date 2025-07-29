@@ -1,11 +1,12 @@
 training:
   model_name: "FNO"
   dataset:
-    #TODO: rewrite code, to give arrays for parameter_name and family. Create data_path in code
-    parameter_name: "Chen2020"
-    family: "GRF" 
+    # Support multiple parameter names and families for multi-dataset training
+    parameter_name: ["Chen2020"]  # Can be array: ["Chen2020", "Prada2013"]
+    family: ["GRF"]  # Can be array: ["GRF", "CC", "Triangle"]
     n_total: 11000
-    data_path: "data/dataset/FNO-vanilla/{parameter_name}_{family}_{n_total}.npz"
+    # data_path will be constructed automatically from parameter_name and family arrays
+    data_dir: "data/dataset/FNO-vanilla"  # Base directory for datasets
     test_ratio: 0.1
     random_seed: 42
   

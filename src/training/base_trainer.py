@@ -44,19 +44,55 @@ class BaseTrainer(ABC):
         print("All devices:", jax.devices())
         print("Default backend:", jax.default_backend())
     
-    def load_dataset(self) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
-        """Load and split dataset into train/test."""
+    def load_dataset(self) -> Tuple[Dict, Dict]:
+        """Load and split dataset. Now supports multiple datasets via arrays."""
         dataset_config = self.config["training"]["dataset"]
-        data_path = dataset_config["data_path"].format(**dataset_config)
         
-        print(f"Loading dataset from: {data_path}")
-        data = np.load(data_path)
+        # Support both single values and arrays
+        parameter_names = dataset_config["parameter_name"]
+        families = dataset_config["family"]
         
-        # Train/test split
+        # Ensure they are lists
+        if not isinstance(parameter_names, list):
+            parameter_names = [parameter_names]
+        if not isinstance(families, list):
+            families = [families]
+            
+        # Load and combine datasets
+        all_data = []
+        data_dir = dataset_config["data_dir"]
+        n_total = dataset_config["n_total"]
+        
+        for param_name in parameter_names:
+            for family in families:
+                data_path = f"{data_dir}/{param_name}_{family}_{n_total}.npz"
+                print(f"Loading dataset from: {data_path}")
+                try:
+                    data = np.load(data_path)
+                    all_data.append(data)
+                except FileNotFoundError:
+                    print(f"Warning: Dataset {data_path} not found, skipping...")
+                    continue
+        
+        if not all_data:
+            raise FileNotFoundError("No valid datasets found!")
+        
+        # If only one dataset, use it directly
+        if len(all_data) == 1:
+            data = all_data[0]
+        else:
+            # Combine multiple datasets
+            combined_data = {}
+            for key in all_data[0].keys():
+                combined_arrays = [dataset[key] for dataset in all_data]
+                combined_data[key] = np.concatenate(combined_arrays, axis=0)
+            data = combined_data
+        
+        # Split dataset
         from old.src.util.FNO_util import train_test_split
         train_data, test_data = train_test_split(
             data, 
-            N_total=dataset_config["n_total"],
+            N_total=len(data[list(data.keys())[0]]),  # Use actual combined size
             test_ratio=dataset_config["test_ratio"],
             seed=dataset_config["random_seed"]
         )
@@ -103,13 +139,28 @@ class BaseTrainer(ABC):
         from old.src.util import functions
         dataset_config = self.config["training"]["dataset"]
         
+        # Handle array-based configuration
+        parameter_names = dataset_config["parameter_name"]
+        families = dataset_config["family"]
+        
+        # Use first parameter name and family for filename
+        if isinstance(parameter_names, list):
+            parameter_name = parameter_names[0]
+        else:
+            parameter_name = parameter_names
+            
+        if isinstance(families, list):
+            family = families[0]
+        else:
+            family = families
+        
         prefix = f"{electrode}_" if electrode else ""
         filename = functions.save_model_params(
             params, 
             directory=str(self.model_dir),
             prefix=prefix,
-            family=dataset_config["family"],
-            parameter_name=dataset_config["parameter_name"],
+            family=family,
+            parameter_name=parameter_name,
             N_total=dataset_config["n_total"]
         )
         return filename

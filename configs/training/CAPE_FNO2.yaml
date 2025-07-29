@@ -1,10 +1,12 @@
 training:
   model_name: "CAPE_FNO2"
   dataset:
-    parameter_name: "Prada2013"
-    family: "GRF"
+    # Support multiple parameter names and families for multi-dataset training
+    parameter_name: ["Prada2013"]  # Can be array: ["Chen2020", "Prada2013"]
+    family: ["GRF"]  # Can be array: ["GRF", "CC", "Triangle"]
     n_total: 33011
-    data_path: "data/dataset/FNO-Cape/{parameter_name}_{family}_{n_total}.npz"
+    # data_path will be constructed automatically from parameter_name and family arrays
+    data_dir: "data/dataset/FNO-Cape"  # Base directory for datasets
     test_ratio: 0.1
     random_seed: 42
   
@@ -31,8 +33,7 @@ training:
     output_channels: 1
   
   training:
-    # num_epochs: 50
-    num_epochs: 5
+    num_epochs: 50
     batch_size: 10
     
     # Learning rate schedule
