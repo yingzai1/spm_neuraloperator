@@ -11,6 +11,7 @@ datagen:
   # --- Key mapping for output file ---
   # Maps internal parameter names to the desired names in the output .npz file.
   # If a parameter is not in this map, it will not be saved.
+  # TODO: remove this part
   param_key_map:
     D_n: "Dan"
     D_p: "Dca"

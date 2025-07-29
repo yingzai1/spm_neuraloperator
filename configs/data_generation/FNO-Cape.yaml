@@ -1,7 +1,7 @@
 datagen:
   # --- General Experiment Setup ---
   output_dir: "data/dataset/FNO-Cape"
-  parameter_set: ["Prada2013", "Chen2002"]
+  parameter_set: ["Prada2013", "Chen2020"]
   n_workers: 60
 
   # --- Parameter Sampling ---

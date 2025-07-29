@@ -10,7 +10,9 @@ def create_tasks(samples, family, config):
     tasks = []
     rng = np.random.default_rng()
     t_max = config["pybamm_settings"]["t_max_s"]
-    C_nominal = 1.0 # Should be moved to config if it varies
+    # TODO: Should be moved to config if it varies
+    # TODO: rename C to current
+    C_nominal = 2.3
 
     for i in range(len(samples["soc"])):
         params_for_run = {key: val[i] for key, val in samples.items()}

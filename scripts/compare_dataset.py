@@ -37,11 +37,13 @@ def statistical_comparison(arr1, arr2):
     print("  - Content: Arrays are not element-wise identical. Performing statistical tests...")
 
     # --- 1. Compare Mean and Standard Deviation ---
+    max1, min1 = arr1.max(), arr1.min()
+    max2, min2 = arr2.max(), arr2.min()
     mean1, std1 = arr1.mean(), arr1.std()
     mean2, std2 = arr2.mean(), arr2.std()
 
-    print(f"    - Stats for file 1: mean={mean1:.6f}, std={std1:.6f}")
-    print(f"    - Stats for file 2: mean={mean2:.6f}, std={std2:.6f}")
+    print(f"    - Stats for file 1: mean={mean1:.6f}, std={std1:.6f}, min={min1:.6f}, max={max1:.6f}")
+    print(f"    - Stats for file 2: mean={mean2:.6f}, std={std2:.6f}, min={min2:.6f}, max={max2:.6f}")
 
     # Use np.isclose for robust floating-point comparison
     if np.isclose(mean1, mean2) and np.isclose(std1, std2):

@@ -1,7 +1,7 @@
 datagen:
   # --- General Experiment Setup ---
   output_dir: "data/dataset/FNO-vanilla"
-  parameter_set: ["Prada2013", "Chen2002"]
+  parameter_set: ["Prada2013", "Chen2020"]
   n_workers: 60
 
   # --- Parameter Sampling ---
@@ -17,9 +17,12 @@ datagen:
     D_p: "Dca"
 
   # --- Current Profiles ---
+    # TODO: rename Triangle -> TRI
   current_families: ["CC", "GRF", "PLS", "Triangle"]
 
   # --- PyBaMM Simulation Settings ---
+  # TODO: change t_max_s to t_max
+  # TODO: add r number of points as parameter in category discretization
   pybamm_settings:
     t_max_s: 3600
     t_num_points: 75
