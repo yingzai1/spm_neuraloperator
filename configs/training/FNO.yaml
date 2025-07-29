@@ -1,0 +1,42 @@
+training:
+  model_name: "FNO"
+  dataset:
+    #TODO: rewrite code, to give arrays for parameter_name and family. Create data_path in code
+    parameter_name: "Chen2020"
+    family: "GRF" 
+    n_total: 11000
+    data_path: "data/dataset/FNO-vanilla/{parameter_name}_{family}_{n_total}.npz"
+    test_ratio: 0.1
+    random_seed: 42
+  
+  preprocessing:
+    padding_t: 5
+    padding_r: 2
+    num_samples_I: 75
+    num_samples_c0: 20
+  
+  model:
+    k_modes: 10
+    fno_depth: 6
+    hidden_channels: 32
+    output_channels: 1
+  
+  training:
+    num_epochs: 150
+    batch_size: 20
+    
+    # Learning rate schedule
+    scheduler:
+      warmup_steps_multiplier: 1.0  # warmup_steps = N_total/batch_size * this
+      peak_lr: 1e-2
+      total_steps_multiplier: 25.0  # total_steps = warmup_steps * this
+      end_lr: 1e-4
+  
+  output:
+    model_dir: "models/FNO"
+    plot_results: true
+    save_losses: true
+
+# PyBaMM parameters
+pybamm:
+  t_max: 3600 

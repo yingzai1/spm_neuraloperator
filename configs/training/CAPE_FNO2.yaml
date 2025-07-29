@@ -1,0 +1,52 @@
+training:
+  model_name: "CAPE_FNO2"
+  dataset:
+    parameter_name: "Prada2013"
+    family: "GRF"
+    n_total: 33011
+    data_path: "data/dataset/FNO-Cape/{parameter_name}_{family}_{n_total}.npz"
+    test_ratio: 0.1
+    random_seed: 42
+  
+  preprocessing:
+    padding_t: 5
+    padding_r: 2
+    num_samples_I: 75
+    num_samples_c0: 20
+    
+    # Parameter scaling settings
+    parameter_scaling:
+      log_scale: true
+      param_bounds:
+        D_n: [1e-18, 1e-14]  # Negative particle diffusivity [m2.s-1]
+        D_p: [1e-18, 1e-14]  # Positive particle diffusivity [m2.s-1]
+        R_n: [4e-6, 1.5e-5]  # Negative particle radius [m]
+        R_p: [1e-8, 1.5e-5]  # Positive particle radius [m]
+  
+  model:
+    k_modes: [5, 20]
+    fno_depth: 8
+    hidden_channels: 64
+    cape_hidden_size: 32
+    output_channels: 1
+  
+  training:
+    # num_epochs: 50
+    num_epochs: 5
+    batch_size: 10
+    
+    # Learning rate schedule
+    scheduler:
+      warmup_steps_multiplier: 1.0
+      peak_lr: 1e-2
+      total_steps_multiplier: 50.0
+      end_lr: 1e-4
+  
+  output:
+    model_dir: "models/CAPE_FNO2"
+    plot_results: true
+    save_losses: true
+
+# PyBaMM parameters
+pybamm:
+  t_max: 3600 

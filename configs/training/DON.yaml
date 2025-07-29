@@ -1,0 +1,53 @@
+training:
+  model_name: "DON"
+  dataset:
+    parameter_name: "Chen2020"
+    family: "Triangle"
+    n_total: 2200
+    data_path: "data/dataset/DeepONet/{parameter_name}_{family}_{n_total}.npz"
+    test_ratio: 0.1
+    random_seed: 42
+  
+  preprocessing:
+    num_samples_I: 75
+    num_samples_c0: 20
+    
+    # Concentration filtering bounds (normalized)
+    concentration_bounds:
+      cs_max_a_norm: 1
+      cs_max_c_norm: 1
+      cs_min_a_norm: 0
+      cs_min_c_norm: 0
+  
+  model:
+    # Network architecture
+    width: 500
+    depth: 11
+    amount_basis: 16
+    
+    # DeepONet specific
+    branch_layers: null  # Will be computed as [width] * depth + [amount_basis]
+    trunk_layers: null   # Will be same as branch_layers
+  
+  training:
+    num_epochs: 100
+    batch_size: 20
+    
+    # Gradient clipping
+    max_grad_norm: 1.0
+    
+    # Learning rate schedule
+    scheduler:
+      warmup_steps_multiplier: 1.0
+      peak_lr: 1e-3
+      total_steps_multiplier: 100.0
+      end_lr: 5e-5
+  
+  output:
+    model_dir: "models/DON"
+    plot_results: true
+    save_losses: true
+
+# PyBaMM parameters
+pybamm:
+  t_max: 3600 
