@@ -17,7 +17,7 @@ datagen:
     D_p: "Dca"
 
   # --- Current Profiles ---
-  current_families: ["CC"]
+  current_families: ["Triangle"]
 
   # --- PyBaMM Simulation Settings ---
   pybamm_settings:
