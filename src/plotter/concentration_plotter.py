@@ -55,8 +55,11 @@ class ConcentrationPlotter(BasePlotter):
         train_data = np.concatenate([c_train_pred.ravel(), c_train_true.ravel()])
         test_data = np.concatenate([c_test_pred.ravel(), c_test_true.ravel()])
         
-        train_min, train_max = train_data.min(), train_data.max()
-        test_min, test_max = test_data.min(), test_data.max()
+        # Ensure colour scales start at 0 (concentrations are non-negative)
+        train_min = max(train_data.min(), 0.0)
+        train_max = train_data.max()
+        test_min = max(test_data.min(), 0.0)
+        test_max = test_data.max()
         
         # Create normalization objects
         train_norm = Normalize(vmin=train_min, vmax=train_max)
