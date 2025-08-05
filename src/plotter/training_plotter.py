@@ -3,7 +3,7 @@ import jax.numpy as jnp
 from typing import Dict, Any, Optional, Tuple
 from .base_plotter import BasePlotter
 from .loss_plotter import LossPlotter
-from .concentration_plotter import ConcentrationPlotter
+from .concentration_summary_plotter import ConcentrationSummaryPlotter
 
 
 class TrainingPlotter(BasePlotter):
@@ -17,7 +17,7 @@ class TrainingPlotter(BasePlotter):
         
         # Initialize sub-plotters with same configuration
         self.loss_plotter = LossPlotter(model_name, timestamp=self.timestamp, **kwargs)
-        self.concentration_plotter = ConcentrationPlotter(model_name, timestamp=self.timestamp, **kwargs)
+        self.concentration_summary_plotter = ConcentrationSummaryPlotter(model_name, timestamp=self.timestamp, **kwargs)
     
     def plot_training_summary(self,
                             train_losses: list,
@@ -108,7 +108,7 @@ class TrainingPlotter(BasePlotter):
         scaled_data = self._scale_concentrations(predictions, train_cn, test_cn, train_idx, test_idx, c_max)
         
         # Plot concentration comparison
-        self.concentration_plotter.plot_concentration_comparison(
+        self.concentration_summary_plotter.create_concentration_summary(
             scaled_data["c_train_pred_scaled"],
             scaled_data["c_train_true_scaled"],
             scaled_data["c_test_pred_scaled"],
@@ -267,7 +267,7 @@ class TrainingPlotter(BasePlotter):
         c_test_true_scaled = c_test_true * c_max
         
         # Plot
-        self.concentration_plotter.plot_concentration_comparison(
+        self.concentration_summary_plotter.create_concentration_summary(
             c_train_pred_scaled,
             c_train_true_scaled,
             c_test_pred_scaled,
