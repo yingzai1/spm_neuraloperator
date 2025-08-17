@@ -1,6 +1,6 @@
 datagen:
   # --- General Experiment Setup ---
-  output_dir: "data/dataset/FNO-vanilla"
+  output_dir: "data/dataset/FNO"
   parameter_set: ["Prada2013", "Chen2020"]
   n_workers: 60
 

@@ -6,7 +6,7 @@ training:
     family: ["GRF"]  # Can be array: ["GRF", "CC", "Triangle"]
     n_total: 11000
     # data_path will be constructed automatically from parameter_name and family arrays
-    data_dir: "data/dataset/FNO-vanilla"  # Base directory for datasets
+    data_dir: "data/dataset/FNO"  # Base directory for datasets
     test_ratio: 0.1
     random_seed: 42
   

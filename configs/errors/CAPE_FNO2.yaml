@@ -1,0 +1,41 @@
+error_analysis:
+  name: "CAPE_FNO2"
+  description: "Error analysis configuration for CAPE-FNO2 models"
+
+model:
+  architecture: "CAPE_FNO2"
+  cape_fno2:
+    k_modes: [5, 20]
+    fno_depth: 8
+    cape_hidden_size: 32
+    hidden_channels: 64
+    input_channels: 4
+    output_channels: 1
+
+data:
+  parameter_name: "Prada2013"
+  family: "GRF"
+  n_total: 33011
+  test_ratio: 0.1
+  random_seed: 42
+  t_max: 3600
+  
+  preprocessing:
+    num_samples_I: 75
+    num_samples_c0: 20
+    padding_r: 2
+    padding_t: 5
+    
+  param_keys:
+    anode: "D_n"
+    cathode: "D_p"
+
+output:
+  plots_dir: "plots/errors/CAPE_FNO2"
+  save_formats: ["png", "svg"]
+
+models:
+  # Leave empty to use latest trained models
+  # Override with --model_anode or --model_cathode flags
+  anode_path: null
+  cathode_path: null 

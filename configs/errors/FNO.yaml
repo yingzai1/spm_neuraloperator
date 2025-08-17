@@ -1,0 +1,39 @@
+error_analysis:
+  name: "FNO"
+  description: "Error analysis configuration for FNO models"
+
+model:
+  architecture: "FNO"
+  fno:
+    k_modes: 10
+    fno_depth: 6
+    hidden_channels: 32
+    output_channels: 1
+
+data:
+  parameter_name: "Chen2020"
+  family: "GRF"
+  n_total: 11000
+  test_ratio: 0.1
+  random_seed: 42
+  t_max: 3600
+  
+  preprocessing:
+    num_samples_I: 75
+    num_samples_c0: 20
+    padding_r: 2
+    padding_t: 5
+    
+  param_keys:
+    anode: "Dan"
+    cathode: "Dca"
+
+output:
+  plots_dir: "plots/errors/FNO"
+  save_formats: ["png", "svg"]
+
+models:
+  # Leave empty to use latest trained models
+  # Override with --model_anode or --model_cathode flags
+  anode_path: null
+  cathode_path: null 
