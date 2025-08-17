@@ -1,0 +1,36 @@
+error_analysis:
+  name: "DON"
+  description: "Error analysis configuration for DeepONet models"
+
+model:
+  architecture: "DON"
+  don:
+    width: 500
+    depth: 11
+    amount_basis: 16
+
+data:
+  parameter_name: "Chen2020"
+  family: "CC"
+  n_total: 2200
+  test_ratio: 0.1
+  random_seed: 42
+  t_max: 3600
+  
+  preprocessing:
+    num_samples_I: 75
+    num_samples_c0: 20
+    
+  param_keys:
+    anode: "D_n"
+    cathode: "D_p"
+
+output:
+  plots_dir: "plots/errors/DON"
+  save_formats: ["png", "svg"]
+
+models:
+  # Leave empty to use latest trained models
+  # Override with --model_anode or --model_cathode flags
+  anode_path: null
+  cathode_path: null 
