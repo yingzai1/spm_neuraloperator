@@ -27,7 +27,7 @@ data:
 
 output:
   plots_dir: "plots/errors/DON"
-  save_formats: ["png", "svg"]
+  save_formats: ["png"]
 
 models:
   # Leave empty to use latest trained models

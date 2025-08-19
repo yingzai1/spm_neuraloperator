@@ -333,8 +333,46 @@ class ErrorAnalyzer:
             test_D_norm = (2 * (test_D_log - d_lower) / (d_upper - d_lower) - 1).reshape(-1, 1)
             test_R_norm = (2 * (test_R_log - r_lower) / (r_upper - r_lower) - 1).reshape(-1, 1)
             
-            # Run predictions
-            c_test_pred = model.apply(params, X_test, test_D_norm, test_R_norm)
+            # Run predictions with batch processing to handle memory constraints
+            batch_size = 256  # Adjust this if needed
+            num_samples = X_test.shape[0]
+            
+            if num_samples <= batch_size:
+                # Small dataset, process all at once
+                c_test_pred = model.apply(params, X_test, test_D_norm, test_R_norm)
+            else:
+                # Large dataset, process in batches
+                print(f"    🔄 Processing {num_samples} samples in batches of {batch_size}...")
+                predictions = []
+                
+                for i in range(0, num_samples, batch_size):
+                    end_idx = min(i + batch_size, num_samples)
+                    batch_X = X_test[i:end_idx]
+                    batch_D = test_D_norm[i:end_idx]
+                    batch_R = test_R_norm[i:end_idx]
+                    
+                    try:
+                        batch_pred = model.apply(params, batch_X, batch_D, batch_R)
+                        predictions.append(batch_pred)
+                        print(f"      ✓ Processed batch {i//batch_size + 1}/{(num_samples + batch_size - 1)//batch_size}")
+                    except Exception as e:
+                        print(f"      ⚠️ Batch {i//batch_size + 1} failed: {str(e)}")
+                        # Try with smaller batch size
+                        smaller_batch_size = batch_size // 2
+                        if smaller_batch_size >= 1:
+                            print(f"      🔄 Retrying with smaller batch size: {smaller_batch_size}")
+                            for j in range(i, end_idx, smaller_batch_size):
+                                small_end = min(j + smaller_batch_size, end_idx)
+                                small_batch_X = X_test[j:small_end]
+                                small_batch_D = test_D_norm[j:small_end]
+                                small_batch_R = test_R_norm[j:small_end]
+                                
+                                small_batch_pred = model.apply(params, small_batch_X, small_batch_D, small_batch_R)
+                                predictions.append(small_batch_pred)
+                        else:
+                            raise e
+                
+                c_test_pred = np.concatenate(predictions, axis=0)
             
             # Remove padding from both predictions and targets
             preprocessing = self.data_config["preprocessing"]

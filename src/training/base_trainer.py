@@ -44,61 +44,32 @@ class BaseTrainer(ABC):
         print("All devices:", jax.devices())
         print("Default backend:", jax.default_backend())
     
-    def load_dataset(self) -> Tuple[Dict, Dict]:
-        """Load and split dataset. Now supports multiple datasets via arrays."""
+    def load_single_dataset(self, parameter_name: str, family: str) -> Optional[Tuple[Dict, Dict]]:
+        """Load and split a single dataset for a specific parameter name and family."""
         dataset_config = self.config["training"]["dataset"]
-        
-        # Support both single values and arrays
-        parameter_names = dataset_config["parameter_name"]
-        families = dataset_config["family"]
-        
-        # Ensure they are lists
-        if not isinstance(parameter_names, list):
-            parameter_names = [parameter_names]
-        if not isinstance(families, list):
-            families = [families]
-            
-        # Load and combine datasets
-        all_data = []
         data_dir = dataset_config["data_dir"]
         n_total = dataset_config["n_total"]
         
-        for param_name in parameter_names:
-            for family in families:
-                data_path = f"{data_dir}/{param_name}_{family}_{n_total}.npz"
-                print(f"Loading dataset from: {data_path}")
-                try:
-                    data = np.load(data_path)
-                    all_data.append(data)
-                except FileNotFoundError:
-                    print(f"Warning: Dataset {data_path} not found, skipping...")
-                    continue
+        data_path = f"{data_dir}/{parameter_name}_{family}_{n_total}.npz"
+        print(f"Loading dataset from: {data_path}")
         
-        if not all_data:
-            raise FileNotFoundError("No valid datasets found!")
-        
-        # If only one dataset, use it directly
-        if len(all_data) == 1:
-            data = all_data[0]
-        else:
-            # Combine multiple datasets
-            combined_data = {}
-            for key in all_data[0].keys():
-                combined_arrays = [dataset[key] for dataset in all_data]
-                combined_data[key] = np.concatenate(combined_arrays, axis=0)
-            data = combined_data
-        
+        try:
+            data = np.load(data_path)
+        except FileNotFoundError:
+            print(f"Warning: Dataset {data_path} not found, skipping...")
+            return None
+            
         # Split dataset
         from old.src.util.FNO_util import train_test_split
         train_data, test_data = train_test_split(
             data, 
-            N_total=len(data[list(data.keys())[0]]),  # Use actual combined size
+            N_total=len(data[list(data.keys())[0]]),
             test_ratio=dataset_config["test_ratio"],
             seed=dataset_config["random_seed"]
         )
         
         return train_data, test_data
-    
+
     def setup_optimizer(self, params, n_total: int) -> Tuple[optax.GradientTransformation, Any]:
         """Setup optimizer with learning rate schedule."""
         scheduler_config = self.config["training"]["training"]["scheduler"]
@@ -134,7 +105,7 @@ class BaseTrainer(ABC):
         if self.config["training"]["output"].get("plot_results", True):
             self.plotter.plot_training_summary(train_losses, test_losses, electrode=electrode)
     
-    def save_model(self, params, electrode: str = ""):
+    def save_model(self, params, electrode: str = "", family: str = ""):
         """Save trained model parameters."""
         from old.src.util import functions
         dataset_config = self.config["training"]["dataset"]
@@ -154,7 +125,7 @@ class BaseTrainer(ABC):
         else:
             family = families
         
-        prefix = f"{electrode}_" if electrode else ""
+        prefix = f"{electrode}_{family}_" if electrode else f"{family}_"
         filename = functions.save_model_params(
             params, 
             directory=str(self.model_dir),
@@ -174,36 +145,50 @@ class BaseTrainer(ABC):
         print(f"📈 Saved plot to {filepath}")
     
     @abstractmethod
-    def preprocess_data(self, train_data: Dict, test_data: Dict) -> Tuple[Any, Any, Any, Any]:
-        """Preprocess training and test data. Must be implemented by subclasses."""
-        pass
-    
-    @abstractmethod
     def create_model(self) -> Any:
         """Create model instance. Must be implemented by subclasses."""
         pass
     
     @abstractmethod
-    def train_electrode(self, electrode: str) -> Tuple[Any, list, list]:
+    def train_electrode(self, electrode: str, family: str) -> Tuple[Any, list, list]:
         """Train model for specific electrode. Must be implemented by subclasses."""
         pass
     
     def train(self):
-        """Main training loop."""
+        """Main training loop that iterates over each family."""
         print(f"Starting training for {self.config['training']['model_name']}")
         
-        # Load dataset
-        train_data, test_data = self.load_dataset()
-        
-        # Train for both electrodes
-        for electrode in ["anode", "cathode"]:
-            print(f"\n--- Training {electrode} model ---")
-            params, train_losses, test_losses = self.train_electrode(electrode)
+        dataset_config = self.config["training"]["dataset"]
+        parameter_names = dataset_config["parameter_name"]
+        families = dataset_config["family"]
+
+        if not isinstance(parameter_names, list):
+            parameter_names = [parameter_names]
+        if not isinstance(families, list):
+            families = [families]
             
-            # Save results
-            self.save_model(params, electrode)
-            self.plot_losses(train_losses, test_losses, electrode)
-            
-            # Clean up memory
-            import gc
-            gc.collect() 
+        for param_name in parameter_names:
+            for family in families:
+                print(f"\n--- Training for family: {param_name}_{family} ---")
+                
+                # Load dataset for the current family
+                dataset = self.load_single_dataset(param_name, family)
+                if dataset is None:
+                    continue
+                
+                self.current_train_data, self.current_test_data = dataset
+                
+                # Train for both electrodes
+                for electrode in ["anode", "cathode"]:
+                    print(f"\n--- Training {electrode} model for {param_name}_{family} ---")
+                    
+                    # Pass the family to train_electrode
+                    params, train_losses, test_losses = self.train_electrode(electrode, family=family)
+                    
+                    # Save results with family name in the filename
+                    self.save_model(params, electrode, family=family)
+                    self.plot_losses(train_losses, test_losses, f"{electrode}_{family}")
+                    
+                    # Clean up memory
+                    import gc
+                    gc.collect() 

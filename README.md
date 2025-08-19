@@ -36,3 +36,28 @@ The error analysis system will:
 - Calculate concentration and voltage prediction errors
 - Print detailed error metrics to console
 - Support comparative analysis across model architectures
+
+### Metrics Comparison Plots
+
+Generate publication-quality comparison plots for concentration and voltage prediction errors:
+
+```bash
+# Create comparison plots for all available models
+python plots_concentration_voltage.py
+
+# Specify custom models
+python plots_concentration_voltage.py --configs configs/errors/FNO.yaml configs/errors/CAPE_FNO2.yaml
+
+# Custom output directory
+python plots_concentration_voltage.py --output_dir plots/paper_figures
+
+# Show plots interactively
+python plots_concentration_voltage.py --show
+```
+
+The metrics comparison system will:
+- Generate publication-quality grouped bar charts
+- Compare concentration errors (nL2, L∞, RMSE, MAE)
+- Compare voltage errors (nL2, nL∞, RMSE, MAE)
+- Save plots in both SVG and PNG formats
+- Support custom output directories

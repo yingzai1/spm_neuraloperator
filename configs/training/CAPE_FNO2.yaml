@@ -3,7 +3,7 @@ training:
   dataset:
     # Support multiple parameter names and families for multi-dataset training
     parameter_name: ["Prada2013"]  # Can be array: ["Chen2020", "Prada2013"]
-    family: ["GRF"]  # Can be array: ["GRF", "CC", "Triangle"]
+    family: ["CC", "PLS", "Triangle"]  # Can be array: ["GRF", "CC", "Triangle"]
     n_total: 33011
     # data_path will be constructed automatically from parameter_name and family arrays
     data_dir: "data/dataset/FNO-Cape"  # Base directory for datasets

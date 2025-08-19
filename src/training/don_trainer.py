@@ -11,15 +11,6 @@ from .base_trainer import BaseTrainer
 class DONTrainer(BaseTrainer):
     """Trainer for DeepONet models."""
     
-    def __init__(self, config_path: str):
-        super().__init__(config_path)
-        self.train_data = None
-        self.test_data = None
-        
-        # Initialize data attributes
-        self.train_I = None
-        self.test_I = None
-        
     def filter_concentration_data(self, train_cn_anode, train_cn_cathode, test_cn_anode, test_cn_cathode):
         """Filter concentration data based on bounds."""
         from old.src.util.postprocess import filter_anode_cathode
@@ -43,55 +34,6 @@ class DONTrainer(BaseTrainer):
         )
         
         return (train_cn_anode, train_cn_cathode, train_mask), (test_cn_anode, test_cn_cathode, test_mask)
-    
-    def preprocess_data(self, train_data: Dict, test_data: Dict):
-        """Preprocess data for DON training."""
-        # Extract data
-        train_I = np.array(train_data["current"])
-        test_I = np.array(test_data["current"])
-        
-        train_cn_anode = np.array(train_data["cn_anode"])
-        test_cn_anode = np.array(test_data["cn_anode"])
-        train_c0_anode = np.array(train_data["c0_anode"])
-        test_c0_anode = np.array(test_data["c0_anode"])
-        
-        train_cn_cathode = np.array(train_data["cn_cathode"])
-        test_cn_cathode = np.array(test_data["cn_cathode"])
-        train_c0_cathode = np.array(train_data["c0_cathode"])
-        test_c0_cathode = np.array(test_data["c0_cathode"])
-        
-        train_soc = np.array(train_data["soc"])
-        test_soc = np.array(test_data["soc"])
-        
-        # Filter concentration data
-        (train_cn_anode, train_cn_cathode, train_mask), (test_cn_anode, test_cn_cathode, test_mask) = \
-            self.filter_concentration_data(train_cn_anode, train_cn_cathode, test_cn_anode, test_cn_cathode)
-        
-        # Apply masks to all data
-        train_I = train_I[train_mask]
-        test_I = test_I[test_mask]
-        train_c0_anode = train_c0_anode[train_mask]
-        test_c0_anode = test_c0_anode[test_mask]
-        train_c0_cathode = train_c0_cathode[train_mask]
-        test_c0_cathode = test_c0_cathode[test_mask]
-        train_soc = train_soc[train_mask]
-        test_soc = test_soc[test_mask]
-        
-        # Store for later use
-        self.train_I = train_I
-        self.test_I = test_I
-        self.train_cn_anode = train_cn_anode
-        self.test_cn_anode = test_cn_anode
-        self.train_c0_anode = train_c0_anode
-        self.test_c0_anode = test_c0_anode
-        self.train_cn_cathode = train_cn_cathode
-        self.test_cn_cathode = test_cn_cathode
-        self.train_c0_cathode = train_c0_cathode
-        self.test_c0_cathode = test_c0_cathode
-        self.train_soc = train_soc
-        self.test_soc = test_soc
-        
-        return train_I, test_I, train_data, test_data
     
     def create_data_loader(self, train_I, train_c0, train_cn, trunk_points, batch_size):
         """Create data loader for DON training."""
@@ -149,27 +91,40 @@ class DONTrainer(BaseTrainer):
         opt_state = optimizer.init(params)
         return optimizer, opt_state
     
-    def train_electrode(self, electrode: str) -> Tuple[Any, list, list]:
-        """Train DON for specific electrode."""
-        if self.train_I is None:
-            self.preprocess_data(*self.load_dataset())
+    def train_electrode(self, electrode: str, family: str) -> Tuple[Any, list, list]:
+        """Train DON for a specific electrode and data family."""
         
         from ..models import generate_trunk_points
         
         preprocessing_config = self.config["training"]["preprocessing"]
         training_config = self.config["training"]["training"]
         
+        # Use the data for the current family
+        train_data = self.current_train_data
+        test_data = self.current_test_data
+
+        # Preprocess data for DON
+        train_I, test_I = np.array(train_data["current"]), np.array(test_data["current"])
+        train_cn_anode, test_cn_anode = np.array(train_data["cn_anode"]), np.array(test_data["cn_anode"])
+        train_c0_anode, test_c0_anode = np.array(train_data["c0_anode"]), np.array(test_data["c0_anode"])
+        train_cn_cathode, test_cn_cathode = np.array(train_data["cn_cathode"]), np.array(test_data["cn_cathode"])
+        train_c0_cathode, test_c0_cathode = np.array(train_data["c0_cathode"]), np.array(test_data["c0_cathode"])
+        train_soc, test_soc = np.array(train_data["soc"]), np.array(test_data["soc"])
+
+        (train_cn_anode, train_cn_cathode, train_mask), (test_cn_anode, test_cn_cathode, test_mask) = \
+            self.filter_concentration_data(train_cn_anode, train_cn_cathode, test_cn_anode, test_cn_cathode)
+        
+        train_I, test_I = train_I[train_mask], test_I[test_mask]
+        train_c0_anode, test_c0_anode = train_c0_anode[train_mask], test_c0_anode[test_mask]
+        train_c0_cathode, test_c0_cathode = train_c0_cathode[train_mask], test_c0_cathode[test_mask]
+
         # Get electrode-specific data
         if electrode == "anode":
-            train_c0 = self.train_c0_anode
-            test_c0 = self.test_c0_anode
-            train_cn = self.train_cn_anode
-            test_cn = self.test_cn_anode
+            train_c0, test_c0 = train_c0_anode, test_c0_anode
+            train_cn, test_cn = train_cn_anode, test_cn_anode
         else:  # cathode
-            train_c0 = self.train_c0_cathode
-            test_c0 = self.test_c0_cathode
-            train_cn = self.train_cn_cathode
-            test_cn = self.test_cn_cathode
+            train_c0, test_c0 = train_c0_cathode, test_c0_cathode
+            train_cn, test_cn = train_cn_cathode, test_cn_cathode
         
         # Setup trunk points
         t_max = self.config["pybamm"]["t_max"]
@@ -239,7 +194,7 @@ class DONTrainer(BaseTrainer):
             count = 0
             
             for I_batch, c0_batch, trunk_pts, cn_batch in self.create_data_loader(
-                self.train_I, train_c0, train_cn, trunk_points, batch_size
+                train_I, train_c0, train_cn, trunk_points, batch_size
             ):
                 params, opt_state, loss_value = train_step(
                     params, opt_state, I_batch, c0_batch, trunk_pts, cn_batch
@@ -260,7 +215,7 @@ class DONTrainer(BaseTrainer):
             count2 = 0
             
             for I_batch, c0_batch, trunk_pts, cn_batch in self.create_data_loader(
-                self.test_I, test_c0, test_cn, trunk_points, batch_size
+                test_I, test_c0, test_cn, trunk_points, batch_size
             ):
                 loss_value_test = loss_fn(params, I_batch, c0_batch, trunk_pts, cn_batch)
                 total_test_loss += float(loss_value_test)
@@ -278,8 +233,8 @@ class DONTrainer(BaseTrainer):
         # ── Concentration plots using plotter system ─────────────────────────────────────
         if self.config["training"]["output"].get("plot_results", True):
             data_dict = {
-                "train_I": self.train_I,
-                "test_I": self.test_I,
+                "train_I": train_I,
+                "test_I": test_I,
                 "train_c0": train_c0,
                 "test_c0": test_c0,
                 "train_cn": train_cn,

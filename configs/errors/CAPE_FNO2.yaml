@@ -32,7 +32,6 @@ data:
 
 output:
   plots_dir: "plots/errors/CAPE_FNO2"
-  save_formats: ["png", "svg"]
 
 models:
   # Leave empty to use latest trained models

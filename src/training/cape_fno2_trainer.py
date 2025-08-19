@@ -11,12 +11,6 @@ from .base_trainer import BaseTrainer
 class CAPEFNO2Trainer(BaseTrainer):
     """Trainer for CAPE-FNO2 models with parameter encoding."""
     
-    def __init__(self, config_path: str):
-        super().__init__(config_path)
-        self.train_data = None
-        self.test_data = None
-        self.param_bounds = None
-        
     def setup_parameter_bounds(self):
         """Setup parameter bounds for normalization."""
         bounds_config = self.config["training"]["preprocessing"]["parameter_scaling"]["param_bounds"]
@@ -58,55 +52,6 @@ class CAPEFNO2Trainer(BaseTrainer):
         
         return train_param_anode, test_param_anode, train_param_cathode, test_param_cathode
     
-    def preprocess_data(self, train_data: Dict, test_data: Dict):
-        """Preprocess data for CAPE-FNO2 training."""
-        self.setup_parameter_bounds()
-        
-        # Extract current and concentration data
-        train_I = np.array(train_data["current"])
-        test_I = np.array(test_data["current"])
-        
-        # Extract and scale diffusion parameters
-        train_D_anode = np.array(train_data["D_n"])
-        test_D_anode = np.array(test_data["D_n"])
-        train_D_cathode = np.array(train_data["D_p"])
-        test_D_cathode = np.array(test_data["D_p"])
-        
-        # Extract and scale radius parameters
-        train_R_anode = np.array(train_data["R_n"])
-        test_R_anode = np.array(test_data["R_n"])
-        train_R_cathode = np.array(train_data["R_p"])
-        test_R_cathode = np.array(test_data["R_p"])
-        
-        # Scale parameters
-        train_D_anode, test_D_anode, train_D_cathode, test_D_cathode = self.scale_parameters(
-            train_D_anode, test_D_anode, train_D_cathode, test_D_cathode,
-            "D_n|Negative particle diffusivity [m2.s-1]", 
-            "D_p|Positive particle diffusivity [m2.s-1]"
-        )
-        
-        train_R_anode, test_R_anode, train_R_cathode, test_R_cathode = self.scale_parameters(
-            train_R_anode, test_R_anode, train_R_cathode, test_R_cathode,
-            "R_n|Negative particle radius [m]",
-            "R_p|Positive particle radius [m]"
-        )
-        
-        # Store for later use
-        self.train_data = train_data
-        self.test_data = test_data
-        self.train_I = train_I
-        self.test_I = test_I
-        self.train_D_anode = train_D_anode
-        self.test_D_anode = test_D_anode
-        self.train_D_cathode = train_D_cathode
-        self.test_D_cathode = test_D_cathode
-        self.train_R_anode = train_R_anode
-        self.test_R_anode = test_R_anode
-        self.train_R_cathode = train_R_cathode
-        self.test_R_cathode = test_R_cathode
-        
-        return train_I, test_I, train_data, test_data
-    
     def create_model(self):
         """Create CAPE-FNO2 model."""
         from ..models import CAPEFNO2
@@ -125,39 +70,58 @@ class CAPEFNO2Trainer(BaseTrainer):
             output_channels=model_config["output_channels"]
         )
     
-    def train_electrode(self, electrode: str) -> Tuple[Any, list, list]:
-        """Train CAPE-FNO2 for specific electrode."""
-        if self.train_data is None:
-            self.preprocess_data(*self.load_dataset())
+    def train_electrode(self, electrode: str, family: str) -> Tuple[Any, list, list]:
+        """Train CAPE-FNO2 for a specific electrode and data family."""
         
+        # Setup parameter bounds for scaling
+        self.setup_parameter_bounds()
+
         from old.src.util.FNO_util import preprocess_data, data_loader_pe
         
         preprocessing_config = self.config["training"]["preprocessing"]
         training_config = self.config["training"]["training"]
+
+        # Use the data for the current family
+        train_data = self.current_train_data
+        test_data = self.current_test_data
+
+        # Extract and scale parameters
+        train_I = np.array(train_data["current"])
+        test_I = np.array(test_data["current"])
+        
+        train_D_anode, test_D_anode, train_D_cathode, test_D_cathode = self.scale_parameters(
+            np.array(train_data["D_n"]), np.array(test_data["D_n"]),
+            np.array(train_data["D_p"]), np.array(test_data["D_p"]),
+            "D_n|Negative particle diffusivity [m2.s-1]", 
+            "D_p|Positive particle diffusivity [m2.s-1]"
+        )
+        
+        train_R_anode, test_R_anode, train_R_cathode, test_R_cathode = self.scale_parameters(
+            np.array(train_data["R_n"]), np.array(test_data["R_n"]),
+            np.array(train_data["R_p"]), np.array(test_data["R_p"]),
+            "R_n|Negative particle radius [m]",
+            "R_p|Positive particle radius [m]"
+        )
         
         # Get electrode-specific data
         if electrode == "anode":
-            train_c0 = np.array(self.train_data["c0_anode"])
-            test_c0 = np.array(self.test_data["c0_anode"])
-            train_cn = np.array(self.train_data["cn_anode"])
-            test_cn = np.array(self.test_data["cn_anode"])
-            train_D = self.train_D_anode
-            test_D = self.test_D_anode
-            train_R = self.train_R_anode
-            test_R = self.test_R_anode
+            train_c0 = np.array(train_data["c0_anode"])
+            test_c0 = np.array(test_data["c0_anode"])
+            train_cn = np.array(train_data["cn_anode"])
+            test_cn = np.array(test_data["cn_anode"])
+            train_D, test_D = train_D_anode, test_D_anode
+            train_R, test_R = train_R_anode, test_R_anode
         else:  # cathode
-            train_c0 = np.array(self.train_data["c0_cathode"])
-            test_c0 = np.array(self.test_data["c0_cathode"])
-            train_cn = np.array(self.train_data["cn_cathode"])
-            test_cn = np.array(self.test_data["cn_cathode"])
-            train_D = self.train_D_cathode
-            test_D = self.test_D_cathode
-            train_R = self.train_R_cathode
-            test_R = self.test_R_cathode
+            train_c0 = np.array(train_data["c0_cathode"])
+            test_c0 = np.array(test_data["c0_cathode"])
+            train_cn = np.array(train_data["cn_cathode"])
+            test_cn = np.array(test_data["cn_cathode"])
+            train_D, test_D = train_D_cathode, test_D_cathode
+            train_R, test_R = train_R_cathode, test_R_cathode
         
         # Preprocess data
         X_train, Y_train = preprocess_data(
-            self.train_I, train_c0, train_cn,
+            train_I, train_c0, train_cn,
             preprocessing_config["num_samples_I"],
             preprocessing_config["num_samples_c0"],
             preprocessing_config["padding_r"],
@@ -165,7 +129,7 @@ class CAPEFNO2Trainer(BaseTrainer):
         )
         
         X_test, Y_test = preprocess_data(
-            self.test_I, test_c0, test_cn,
+            test_I, test_c0, test_cn,
             preprocessing_config["num_samples_I"],
             preprocessing_config["num_samples_c0"],
             preprocessing_config["padding_r"],
@@ -184,7 +148,7 @@ class CAPEFNO2Trainer(BaseTrainer):
         params = model.init(init_key, X_train[:1, ...], dummy_D, dummy_R)
         
         # Setup optimizer
-        n_total = self.config["training"]["dataset"]["n_total"]
+        n_total = X_train.shape[0] # Use the actual size of the training data for the family
         optimizer, opt_state = self.setup_optimizer(params, n_total)
         
         # Define loss function
@@ -239,18 +203,6 @@ class CAPEFNO2Trainer(BaseTrainer):
 
         # ── Concentration plots using plotter system ─────────────────────────────────────
         if self.config["training"]["output"].get("plot_results", True):
-            # Prepare electrode-specific data
-            if electrode == "anode":
-                train_D_scaled = self.train_D_anode
-                test_D_scaled = self.test_D_anode
-                train_R_scaled = self.train_R_anode
-                test_R_scaled = self.test_R_anode
-            else:
-                train_D_scaled = self.train_D_cathode
-                test_D_scaled = self.test_D_cathode
-                train_R_scaled = self.train_R_cathode
-                test_R_scaled = self.test_R_cathode
-
             data_dict = {
                 "X_train": X_train,
                 "Y_train": Y_train,
@@ -258,12 +210,12 @@ class CAPEFNO2Trainer(BaseTrainer):
                 "Y_test": Y_test,
                 "train_cn": train_cn,
                 "test_cn": test_cn,
-                "train_I": self.train_I,
-                "test_I": self.test_I,
-                "train_D": train_D_scaled,
-                "test_D": test_D_scaled,
-                "train_R": train_R_scaled,
-                "test_R": test_R_scaled
+                "train_I": train_I,
+                "test_I": test_I,
+                "train_D": train_D,
+                "test_D": test_D,
+                "train_R": train_R,
+                "test_R": test_R
             }
             
             self.plotter.plot_model_predictions(
