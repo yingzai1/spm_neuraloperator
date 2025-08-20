@@ -31,6 +31,5 @@ output:
 
 models:
   # Leave empty to use latest trained models
-  # Override with --model_anode or --model_cathode flags
-  anode_path: null
-  cathode_path: null 
+  # Override with --model flag
+  model_path: null 

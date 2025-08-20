@@ -11,8 +11,12 @@ model:
     output_channels: 1
 
 data:
-  parameter_name: "Chen2020"
-  family: "GRF"
+  parameter_name: "Prada2013"
+  family: 
+    - "CC"
+    # - "Triangle"
+    # - "PLS"
+    # - "GRF"
   n_total: 11000
   test_ratio: 0.1
   random_seed: 42
@@ -34,6 +38,5 @@ output:
 
 models:
   # Leave empty to use latest trained models
-  # Override with --model_anode or --model_cathode flags
-  anode_path: null
-  cathode_path: null 
+  # Override with --model flag
+  model_path: null 

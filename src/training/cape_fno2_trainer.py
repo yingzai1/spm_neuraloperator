@@ -219,7 +219,7 @@ class CAPEFNO2Trainer(BaseTrainer):
             }
             
             self.plotter.plot_model_predictions(
-                model.apply, params, data_dict, self.config, electrode
+                model.apply, params, data_dict, self.config, electrode, family=family
             )
         
         # Clean up large arrays

@@ -62,8 +62,8 @@ def run_model_analysis(config_path: str) -> Dict[str, Any]:
             # Run analysis for this profile
             profile_results = analyzer.analyze_model(
                 model_architecture=model_architecture,
-                anode_model_path=None,  # Use latest models
-                cathode_model_path=None
+                anode_model_path=None,  # Use latest model
+                cathode_model_path=None  # Ignored in unified model structure
             )
             
             results[profile] = profile_results

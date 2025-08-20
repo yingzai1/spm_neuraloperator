@@ -46,7 +46,8 @@ class TrainingPlotter(BasePlotter):
                              config: Dict[str, Any],
                              electrode: str,
                              save: bool = True,
-                             show_plot: bool = False) -> None:
+                             show_plot: bool = False,
+                             family: str = "") -> None:
         """
         Generate and plot model predictions for concentration analysis.
         
@@ -94,10 +95,14 @@ class TrainingPlotter(BasePlotter):
             c_max = param_set["Maximum concentration in positive electrode [mol.m-3]"]
             particle_radius = param_set["Positive particle radius [m]"]
         
-        # Pick random samples for visualization
-        rng = np.random.default_rng(42)  # Fixed seed for reproducibility
-        train_idx = rng.integers(0, X_train.shape[0])
-        test_idx = rng.integers(0, X_test.shape[0])
+        # Pick samples for visualization - use deterministic selection for consistency
+        # Select samples from the middle portion to avoid edge cases
+        train_idx = X_train.shape[0] // 2  # Middle sample from training set
+        test_idx = X_test.shape[0] // 2    # Middle sample from test set
+        
+        # Ensure indices are within bounds
+        train_idx = min(train_idx, X_train.shape[0] - 1)
+        test_idx = min(test_idx, X_test.shape[0] - 1)
         
         # Generate predictions
         predictions = self._generate_predictions(
@@ -119,7 +124,8 @@ class TrainingPlotter(BasePlotter):
             particle_radius,
             electrode,
             save,
-            show_plot
+            show_plot,
+            family
         )
     
     def _generate_predictions(self,

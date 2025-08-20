@@ -29,15 +29,13 @@ def load_config(config_path: str) -> Dict[str, Any]:
 
 
 def run_single_model_analysis(config_path: str, 
-                             anode_model_path: Optional[str] = None,
-                             cathode_model_path: Optional[str] = None) -> Dict[str, Any]:
+                             model_path: Optional[str] = None) -> Dict[str, Any]:
     """
     Run error analysis for a single model architecture.
     
     Args:
         config_path: Path to error analysis configuration
-        anode_model_path: Optional path to anode model (uses latest if None)
-        cathode_model_path: Optional path to cathode model (uses latest if None)
+        model_path: Optional path to model file (uses latest if None)
         
     Returns:
         Dictionary containing analysis results
@@ -52,8 +50,8 @@ def run_single_model_analysis(config_path: str,
     model_architecture = config["model"]["architecture"]
     results = analyzer.analyze_model(
         model_architecture=model_architecture,
-        anode_model_path=anode_model_path,
-        cathode_model_path=cathode_model_path
+        anode_model_path=model_path,  # Using anode_model_path as the primary model path
+        cathode_model_path=None  # Ignored in new structure
     )
     
     return results
@@ -62,26 +60,85 @@ def run_single_model_analysis(config_path: str,
 def print_error_summary(results: Dict[str, Any]) -> None:
     """Print a summary of error metrics to console."""
     model_name = results["model_architecture"]
-    print(f"\n📊 Error Summary for {model_name}:")
-    print("=" * 50)
     
-    # Concentration errors (normalized)
-    conc_errors = results["concentration_errors_normalized"]["combined"]
-    print("\n🧪 Concentration Errors (Normalized):")
-    print(f"  MAE:       {conc_errors['mae'].mean():.6f}")
-    print(f"  RMSE:      {np.sqrt(conc_errors['mse'].mean()):.6f}")
-    print(f"  Rel L2:    {conc_errors['rel_l2'].mean() * 100:.3f}%")
-    print(f"  Rel L∞:    {conc_errors['rel_linf'].mean() * 100:.3f}%")
-    
-    # Voltage errors
-    voltage_errors = results["voltage_errors"]
-    print("\n⚡ Voltage Errors:")
-    print(f"  MAE:       {voltage_errors['mae'].mean() * 1000:.3f} mV")
-    print(f"  RMSE:      {np.sqrt(voltage_errors['mse'].mean()) * 1000:.3f} mV")
-    print(f"  Rel L2:    {voltage_errors['rel_l2'].mean() * 100:.3f}%")
-    print(f"  Rel L∞:    {voltage_errors['rel_linf'].mean() * 100:.3f}%")
-    
-    print("=" * 50)
+    # Check if this is a multi-profile result
+    if "profile_results" in results and "families" in results:
+        # Multi-profile analysis - print each profile separately
+        families = results["families"]
+        profile_results = results["profile_results"]
+        
+        print(f"\n📊 Error Summary for {model_name} - Profile-by-Profile Analysis:")
+        print("=" * 70)
+        
+        for profile in families:
+            if profile in profile_results:
+                result = profile_results[profile]
+                print(f"\n🔬 {profile} Current Profile:")
+                print("-" * 50)
+                
+                # Concentration errors (normalized)
+                conc_errors = result["concentration_errors_normalized"]["combined"]
+                print("\n🧪 Concentration Errors (Normalized):")
+                print(f"  MAE:       {conc_errors['mae'].mean():.6f}")
+                print(f"  RMSE:      {np.sqrt(conc_errors['mse'].mean()):.6f}")
+                print(f"  Rel L2:    {conc_errors['rel_l2'].mean() * 100:.3f}%")
+                print(f"  Rel L∞:    {conc_errors['rel_linf'].mean() * 100:.3f}%")
+                
+                # Voltage errors
+                voltage_errors = result["voltage_errors"]
+                print("\n⚡ Voltage Errors:")
+                print(f"  MAE:       {voltage_errors['mae'].mean() * 1000:.3f} mV")
+                print(f"  RMSE:      {np.sqrt(voltage_errors['mse'].mean()) * 1000:.3f} mV")
+                print(f"  Rel L2:    {voltage_errors['rel_l2'].mean() * 100:.3f}%")
+                print(f"  Rel L∞:    {voltage_errors['rel_linf'].mean() * 100:.3f}%")
+                print("-" * 50)
+            else:
+                print(f"\n⚠️  {profile} Current Profile: Analysis failed")
+        
+        # Also print combined summary
+        print(f"\n📊 Combined Summary for {model_name} (All Profiles):")
+        print("=" * 50)
+        
+        # Combined concentration errors (normalized)
+        conc_errors = results["concentration_errors_normalized"]["combined"]
+        print("\n🧪 Concentration Errors (Normalized):")
+        print(f"  MAE:       {conc_errors['mae'].mean():.6f}")
+        print(f"  RMSE:      {np.sqrt(conc_errors['mse'].mean()):.6f}")
+        print(f"  Rel L2:    {conc_errors['rel_l2'].mean() * 100:.3f}%")
+        print(f"  Rel L∞:    {conc_errors['rel_linf'].mean() * 100:.3f}%")
+        
+        # Combined voltage errors
+        voltage_errors = results["voltage_errors"]
+        print("\n⚡ Voltage Errors:")
+        print(f"  MAE:       {voltage_errors['mae'].mean() * 1000:.3f} mV")
+        print(f"  RMSE:      {np.sqrt(voltage_errors['mse'].mean()) * 1000:.3f} mV")
+        print(f"  Rel L2:    {voltage_errors['rel_l2'].mean() * 100:.3f}%")
+        print(f"  Rel L∞:    {voltage_errors['rel_linf'].mean() * 100:.3f}%")
+        
+        print("=" * 70)
+        
+    else:
+        # Single profile analysis - use original format
+        print(f"\n📊 Error Summary for {model_name}:")
+        print("=" * 50)
+        
+        # Concentration errors (normalized)
+        conc_errors = results["concentration_errors_normalized"]["combined"]
+        print("\n🧪 Concentration Errors (Normalized):")
+        print(f"  MAE:       {conc_errors['mae'].mean():.6f}")
+        print(f"  RMSE:      {np.sqrt(conc_errors['mse'].mean()):.6f}")
+        print(f"  Rel L2:    {conc_errors['rel_l2'].mean() * 100:.3f}%")
+        print(f"  Rel L∞:    {conc_errors['rel_linf'].mean() * 100:.3f}%")
+        
+        # Voltage errors
+        voltage_errors = results["voltage_errors"]
+        print("\n⚡ Voltage Errors:")
+        print(f"  MAE:       {voltage_errors['mae'].mean() * 1000:.3f} mV")
+        print(f"  RMSE:      {np.sqrt(voltage_errors['mse'].mean()) * 1000:.3f} mV")
+        print(f"  Rel L2:    {voltage_errors['rel_l2'].mean() * 100:.3f}%")
+        print(f"  Rel L∞:    {voltage_errors['rel_linf'].mean() * 100:.3f}%")
+        
+        print("=" * 50)
 
 
 def print_comparison_table(results: Dict[str, Dict[str, Any]]) -> None:
@@ -162,11 +219,11 @@ Examples:
   # Analyze FNO model with latest trained weights
   python print_model_errors.py configs/errors/FNO.yaml
   
-  # Analyze CAPE-FNO2 with specific anode model
-  python print_model_errors.py configs/errors/CAPE_FNO2.yaml --model_anode models/CAPE_FNO2/anode_model.msgpack
+  # Analyze CAPE-FNO2 with specific model file
+  python print_model_errors.py configs/errors/CAPE_FNO2.yaml --model models/CAPE_FNO2/model.msgpack
   
-  # Analyze DON with specific cathode model
-  python print_model_errors.py configs/errors/DON.yaml --model_cathode models/DON/cathode_model.msgpack
+  # Analyze DON with specific model file
+  python print_model_errors.py configs/errors/DON.yaml --model models/DON/model.msgpack
   
   # Run comparative analysis across multiple models
   python print_model_errors.py configs/errors/FNO.yaml configs/errors/CAPE_FNO2.yaml --compare
@@ -180,15 +237,9 @@ Examples:
     )
     
     parser.add_argument(
-        "--model_anode",
+        "--model",
         type=str,
-        help="Path to specific anode model file (overrides config default)"
-    )
-    
-    parser.add_argument(
-        "--model_cathode", 
-        type=str,
-        help="Path to specific cathode model file (overrides config default)"
+        help="Path to specific model file (overrides config default)"
     )
     
     parser.add_argument(
@@ -212,8 +263,8 @@ Examples:
                 print("❌ Error: Comparative analysis requires at least 2 configuration files")
                 sys.exit(1)
                 
-            if args.model_anode or args.model_cathode:
-                print("⚠️  Warning: Model override flags ignored in comparative mode")
+            if args.model:
+                print("⚠️  Warning: Model override flag ignored in comparative mode")
                 
             run_comparative_analysis(args.config)
             
@@ -222,15 +273,13 @@ Examples:
             config_path = args.config[0]
             config = load_config(config_path)
             
-            # Override model paths if provided
-            anode_path = args.model_anode or config.get("models", {}).get("anode_path")
-            cathode_path = args.model_cathode or config.get("models", {}).get("cathode_path") 
+            # Override model path if provided
+            model_path = args.model or config.get("models", {}).get("model_path")
             
             # Run analysis
             results = run_single_model_analysis(
                 config_path=config_path,
-                anode_model_path=anode_path,
-                cathode_model_path=cathode_path
+                model_path=model_path
             )
             
             # Print summary

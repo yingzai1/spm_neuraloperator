@@ -110,22 +110,25 @@ class BaseTrainer(ABC):
         from old.src.util import functions
         dataset_config = self.config["training"]["dataset"]
         
-        # Handle array-based configuration
+        # Handle array-based configuration for parameter names
         parameter_names = dataset_config["parameter_name"]
-        families = dataset_config["family"]
         
-        # Use first parameter name and family for filename
+        # Use first parameter name for filename
         if isinstance(parameter_names, list):
             parameter_name = parameter_names[0]
         else:
             parameter_name = parameter_names
             
-        if isinstance(families, list):
-            family = families[0]
-        else:
-            family = families
+        # Use the passed family parameter, not the config family
+        # If no family passed, fall back to first family in config
+        if not family:
+            families = dataset_config["family"]
+            if isinstance(families, list):
+                family = families[0]
+            else:
+                family = families
         
-        prefix = f"{electrode}_{family}_" if electrode else f"{family}_"
+        prefix = f"{electrode}{family}_" if electrode else f"{family}_"
         filename = functions.save_model_params(
             params, 
             directory=str(self.model_dir),

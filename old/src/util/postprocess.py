@@ -43,7 +43,7 @@ def relative_l2_error_set(predictions, ground_truth, axis=(1, 2)):
     norm_ground_truth = jnp.linalg.norm(ground_truth, 2, axis=axis)
     norm_diff = jnp.linalg.norm(predictions.squeeze() - ground_truth, 2, axis=axis)
 
-    return norm_diff / (norm_ground_truth + 1e-12)
+    return norm_diff / norm_ground_truth
 
 def relative_linf_error_set(predictions, ground_truth, axis=(1, 2)):
     # pred and target: (K,) arrays
@@ -52,7 +52,7 @@ def relative_linf_error_set(predictions, ground_truth, axis=(1, 2)):
     # print(ground_truth.squeeze().shape, predictions.squeeze().shape)
     norm_diff = jnp.linalg.norm(predictions.squeeze() - ground_truth, jnp.inf, axis=axis)
 
-    return norm_diff / (norm_ground_truth + 1e-12)
+    return norm_diff / norm_ground_truth
 
 def calc_error_metrics(predictions, ground_truth, axis=(1, 2)):
     """

@@ -27,7 +27,8 @@ class ConcentrationSummaryPlotter(BasePlotter):
                                    particle_radius: float,
                                    electrode: str,
                                    save: bool = True,
-                                   show_plot: bool = False) -> Optional[plt.Figure]:
+                                   show_plot: bool = False,
+                                   family: str = "") -> Optional[plt.Figure]:
         """
         Create comprehensive concentration comparison summary plot.
         
@@ -111,7 +112,9 @@ class ConcentrationSummaryPlotter(BasePlotter):
             plt.show()
             
         if save:
-            self.save_figure(fig, "concentration", electrode)
+            # Include family in filename to avoid overwriting
+            plot_name = f"concentration_{family}" if family else "concentration"
+            self.save_figure(fig, plot_name, electrode)
             return None
         else:
             return fig

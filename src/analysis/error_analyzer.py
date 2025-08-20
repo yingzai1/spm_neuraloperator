@@ -46,6 +46,10 @@ class ErrorAnalyzer:
         family = self.data_config["family"]
         n_total = self.data_config["n_total"]
         
+        # Handle single family (the multiple family logic is now in analyze_model)
+        if isinstance(family, list):
+            raise ValueError("load_dataset should only be called with single family. Use analyze_model for multiple families.")
+        
         # Try different possible dataset paths
         possible_paths = [
             f"data/dataset/FNO/{parameter_name}_{family}_{n_total}.npz",
@@ -120,13 +124,37 @@ class ErrorAnalyzer:
             
         return filtered_train_data, filtered_test_data
     
-    def find_latest_model(self, model_type: str, electrode: str) -> Optional[str]:
-        """Find the most recently trained model for given type and electrode."""
+    def find_latest_model(self, model_type: str, electrode: str, current_profile: Optional[str] = None) -> Optional[str]:
+        """Find the most recently trained model for given type, electrode, and current profile."""
         model_dir = Path(f"models/{model_type}")
         if not model_dir.exists():
             return None
+        
+        # For the new naming convention: parameter_name_profile_n_total_timestamp.msgpack
+        # Models are no longer separated by electrode, so we just look for the profile match
+        if current_profile:
+            # Map profile names to ensure consistency
+            profile_mapping = {
+                'CC': 'CC',
+                'Triangle': 'Triangle', 
+                'PLS': 'PLS', 
+                'GRF': 'GRF'
+            }
             
-        pattern = f"{electrode}_*.msgpack"
+            profile_id = profile_mapping.get(current_profile, current_profile)
+            
+            # New pattern: parameter_name_profile_n_total_timestamp.msgpack
+            # e.g., Prada2013_Triangle_11000_2025-08-19_19-37-34.msgpack
+            pattern = f"*_{profile_id}_*.msgpack"
+            
+            model_files = list(model_dir.glob(pattern))
+            if model_files:
+                # Sort by modification time and return the latest
+                latest_model = max(model_files, key=lambda p: p.stat().st_mtime)
+                return str(latest_model)
+        
+        # Fallback: find any model if no profile-specific model found
+        pattern = "*.msgpack"
         model_files = list(model_dir.glob(pattern))
         
         if not model_files:
@@ -407,6 +435,41 @@ class ErrorAnalyzer:
         else:
             raise ValueError(f"Unknown model architecture: {model_architecture}")
     
+    def calculate_concentration_errors(self, c_pred_anode: np.ndarray, c_true_anode: np.ndarray,
+                                     c_pred_cathode: np.ndarray, c_true_cathode: np.ndarray) -> Dict[str, Dict[str, np.ndarray]]:
+        """Calculate concentration prediction errors for both electrodes."""
+        # Battery parameters for scaling
+        parameter_name = self.data_config["parameter_name"]
+        params_bat = pybamm.ParameterValues(parameter_name)
+        cs_max_a = params_bat["Maximum concentration in negative electrode [mol.m-3]"]
+        cs_max_c = params_bat["Maximum concentration in positive electrode [mol.m-3]"]
+        
+        # Scale concentrations
+        c_pred_anode_scaled = c_pred_anode * cs_max_a
+        c_true_anode_scaled = c_true_anode * cs_max_a
+        c_pred_cathode_scaled = c_pred_cathode * cs_max_c
+        c_true_cathode_scaled = c_true_cathode * cs_max_c
+        
+        # Calculate concentration errors
+        concentration_errors_anode = self.calc_error_metrics(c_pred_anode_scaled, c_true_anode_scaled)
+        concentration_errors_cathode = self.calc_error_metrics(c_pred_cathode_scaled, c_true_cathode_scaled)
+        concentration_errors_all = self.calc_error_metrics_all(
+            concentration_errors_anode, concentration_errors_cathode
+        )
+        
+        # Calculate normalized concentration errors
+        concentration_errors_anode_norm = self.calc_error_metrics(c_pred_anode, c_true_anode)
+        concentration_errors_cathode_norm = self.calc_error_metrics(c_pred_cathode, c_true_cathode)
+        concentration_errors_all_norm = self.calc_error_metrics_all(
+            concentration_errors_anode_norm, concentration_errors_cathode_norm
+        )
+        
+        return {
+            "anode": concentration_errors_anode_norm,
+            "cathode": concentration_errors_cathode_norm,
+            "combined": concentration_errors_all_norm
+        }
+
     def calculate_voltage_errors(self, c_pred_anode: np.ndarray, c_true_anode: np.ndarray,
                                c_pred_cathode: np.ndarray, c_true_cathode: np.ndarray,
                                test_I: np.ndarray) -> Dict[str, float]:
@@ -449,108 +512,155 @@ class ErrorAnalyzer:
         
         Args:
             model_architecture: Architecture name (FNO, CAPE_FNO2, DON)
-            anode_model_path: Optional path to anode model (uses latest if None)
-            cathode_model_path: Optional path to cathode model (uses latest if None)
+            anode_model_path: Optional path to model file (uses latest if None) - cathode_model_path ignored
+            cathode_model_path: Deprecated - models are now unified
             
         Returns:
             Dictionary containing all error metrics
         """
-        print(f"🔍 Analyzing {model_architecture} model...")
+        # Get current profile(s) from data config
+        families = self.data_config.get('family', None)
         
-        # Load dataset
-        train_data, test_data = self.load_dataset()
-        train_data, test_data = self.filter_data(train_data, test_data)
+        # Handle both single family (string) and multiple families (list)
+        if isinstance(families, str):
+            families = [families]
         
-        # Find model paths if not provided
-        if anode_model_path is None:
-            anode_model_path = self.find_latest_model(model_architecture, "anode")
-            if anode_model_path is None:
-                raise FileNotFoundError(f"No anode model found for {model_architecture}")
+        if len(families) == 1:
+            # Single profile analysis
+            return self._analyze_single_profile(
+                model_architecture, families[0], anode_model_path, cathode_model_path
+            )
+        else:
+            # Multiple profiles - analyze each separately and combine results
+            print(f"🔍 Analyzing {model_architecture} model for {families} current profiles...")
+            print("📊 Running separate analysis for each profile to match trained models with corresponding datasets...")
+            
+            profile_results = {}
+            combined_concentration_errors = {"anode": {}, "cathode": {}, "combined": {}}
+            combined_voltage_errors = {}
+            
+            for profile in families:
+                print(f"\n🔬 Analyzing profile: {profile}")
                 
-        if cathode_model_path is None:
-            cathode_model_path = self.find_latest_model(model_architecture, "cathode")
-            if cathode_model_path is None:
-                raise FileNotFoundError(f"No cathode model found for {model_architecture}")
-        
-        print(f"📁 Using anode model: {anode_model_path}")
-        print(f"📁 Using cathode model: {cathode_model_path}")
-        
-        # Load models
-        anode_model = self.create_model(model_architecture)
-        cathode_model = self.create_model(model_architecture)
-        
-        anode_params = self.load_model_params(anode_model_path, model_architecture)
-        cathode_params = self.load_model_params(cathode_model_path, model_architecture)
-        
-        # Preprocess data for both electrodes
-        anode_data = self.preprocess_model_data(train_data, test_data, model_architecture, "anode")
-        cathode_data = self.preprocess_model_data(train_data, test_data, model_architecture, "cathode")
-        
-        # Run predictions
-        c_pred_anode, c_true_anode = self.run_predictions(
-            anode_model, anode_params, model_architecture, anode_data, "anode"
-        )
-        c_pred_cathode, c_true_cathode = self.run_predictions(
-            cathode_model, cathode_params, model_architecture, cathode_data, "cathode"
-        )
-        
-        # Battery parameters for scaling
-        parameter_name = self.data_config["parameter_name"]
-        params_bat = pybamm.ParameterValues(parameter_name)
-        cs_max_a = params_bat["Maximum concentration in negative electrode [mol.m-3]"]
-        cs_max_c = params_bat["Maximum concentration in positive electrode [mol.m-3]"]
-        
-        # Scale concentrations
-        c_pred_anode_scaled = c_pred_anode * cs_max_a
-        c_true_anode_scaled = c_true_anode * cs_max_a
-        c_pred_cathode_scaled = c_pred_cathode * cs_max_c
-        c_true_cathode_scaled = c_true_cathode * cs_max_c
-        
-        # Calculate concentration errors
-        concentration_errors_anode = self.calc_error_metrics(c_pred_anode_scaled, c_true_anode_scaled)
-        concentration_errors_cathode = self.calc_error_metrics(c_pred_cathode_scaled, c_true_cathode_scaled)
-        concentration_errors_all = self.calc_error_metrics_all(
-            concentration_errors_anode, concentration_errors_cathode
-        )
-        
-        # Calculate normalized concentration errors
-        concentration_errors_anode_norm = self.calc_error_metrics(c_pred_anode, c_true_anode)
-        concentration_errors_cathode_norm = self.calc_error_metrics(c_pred_cathode, c_true_cathode)
-        concentration_errors_all_norm = self.calc_error_metrics_all(
-            concentration_errors_anode_norm, concentration_errors_cathode_norm
-        )
-        
-        # Calculate voltage errors
-        test_I = test_data["current"]
-        voltage_errors = self.calculate_voltage_errors(
-            c_pred_anode, c_true_anode, c_pred_cathode, c_true_cathode, test_I
-        )
-        
-        # Voltage normalization
-        V_max = params_bat["Upper voltage cut-off [V]"]
-        V_min = params_bat["Lower voltage cut-off [V]"]
-        # This would require calculating actual voltages - simplified for now
-        
-        results = {
-            "model_architecture": model_architecture,
-            "anode_model_path": anode_model_path,
-            "cathode_model_path": cathode_model_path,
-            "concentration_errors": {
-                "anode": concentration_errors_anode,
-                "cathode": concentration_errors_cathode,
-                "combined": concentration_errors_all
-            },
-            "concentration_errors_normalized": {
-                "anode": concentration_errors_anode_norm,
-                "cathode": concentration_errors_cathode_norm,
-                "combined": concentration_errors_all_norm
-            },
-            "voltage_errors": voltage_errors,
-            "predictions": {
-                "anode": {"predicted": c_pred_anode, "true": c_true_anode},
-                "cathode": {"predicted": c_pred_cathode, "true": c_true_cathode}
+                try:
+                    # Run analysis for this specific profile
+                    result = self._analyze_single_profile(
+                        model_architecture, profile, None, None  # Let it find profile-specific models
+                    )
+                    profile_results[profile] = result
+                    
+                    # Accumulate results for combined metrics
+                    for electrode in ["anode", "cathode", "combined"]:
+                        if electrode not in combined_concentration_errors:
+                            combined_concentration_errors[electrode] = {}
+                        
+                        conc_errors = result["concentration_errors_normalized"][electrode]
+                        for metric, values in conc_errors.items():
+                            if metric not in combined_concentration_errors[electrode]:
+                                combined_concentration_errors[electrode][metric] = []
+                            combined_concentration_errors[electrode][metric].extend(values)
+                    
+                    # Accumulate voltage errors
+                    volt_errors = result["voltage_errors"]
+                    for metric, values in volt_errors.items():
+                        if metric not in combined_voltage_errors:
+                            combined_voltage_errors[metric] = []
+                        combined_voltage_errors[metric].extend(values)
+                        
+                except Exception as e:
+                    print(f"⚠️  Warning: Failed to analyze profile {profile}: {str(e)}")
+                    continue
+            
+            # Convert accumulated lists to numpy arrays
+            for electrode in combined_concentration_errors:
+                for metric in combined_concentration_errors[electrode]:
+                    combined_concentration_errors[electrode][metric] = np.array(
+                        combined_concentration_errors[electrode][metric]
+                    )
+            
+            for metric in combined_voltage_errors:
+                combined_voltage_errors[metric] = np.array(combined_voltage_errors[metric])
+            
+            # Return combined results
+            return {
+                "model_architecture": model_architecture,
+                "families": families,
+                "profile_results": profile_results,
+                "concentration_errors_normalized": combined_concentration_errors,
+                "voltage_errors": combined_voltage_errors
             }
-        }
+
+    def _analyze_single_profile(self, model_architecture: str, profile: str,
+                               anode_model_path: Optional[str] = None,
+                               cathode_model_path: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Run error analysis for a single current profile.
         
-        print(f"✅ Analysis complete for {model_architecture}")
-        return results 
+        Args:
+            model_architecture: Architecture name (FNO, CAPE_FNO2, DON)  
+            profile: Current profile name (CC, Triangle, PLS, GRF)
+            anode_model_path: Optional path to model (uses latest if None) - cathode_model_path ignored
+            cathode_model_path: Deprecated - models are now unified
+            
+        Returns:
+            Dictionary containing error metrics for this profile
+        """
+        print(f"🔍 Analyzing {model_architecture} model for {profile} current profile...")
+        
+        # Temporarily set family to single profile for dataset loading
+        original_family = self.data_config['family']
+        self.data_config['family'] = profile
+        
+        try:
+            # Load dataset for this specific profile
+            train_data, test_data = self.load_dataset()
+            train_data, test_data = self.filter_data(train_data, test_data)
+            
+            # Find model path if not provided - use anode_model_path as the primary model path
+            model_path = anode_model_path
+            if model_path is None:
+                model_path = self.find_latest_model(model_architecture, "model", profile)
+                if model_path is None:
+                    raise FileNotFoundError(f"No model found for {model_architecture} with profile {profile}")
+            
+            print(f"📁 Using model for {profile}: {model_path}")
+            
+            # Load single unified model
+            model = self.create_model(model_architecture)
+            model_params = self.load_model_params(model_path, model_architecture)
+            
+            # Preprocess data for both electrodes
+            anode_data = self.preprocess_model_data(train_data, test_data, model_architecture, "anode")
+            cathode_data = self.preprocess_model_data(train_data, test_data, model_architecture, "cathode")
+            
+            # Run predictions using the same model for both electrodes
+            c_pred_anode, c_true_anode = self.run_predictions(
+                model, model_params, model_architecture, anode_data, "anode"
+            )
+            
+            c_pred_cathode, c_true_cathode = self.run_predictions(
+                model, model_params, model_architecture, cathode_data, "cathode"
+            )
+            
+            # Calculate concentration errors
+            concentration_errors = self.calculate_concentration_errors(
+                c_pred_anode, c_true_anode, c_pred_cathode, c_true_cathode
+            )
+            
+            # Calculate voltage errors
+            voltage_errors = self.calculate_voltage_errors(
+                c_pred_anode, c_true_anode, c_pred_cathode, c_true_cathode, test_data["current"]
+            )
+            
+            print(f"✅ Analysis complete for {model_architecture} on {profile}")
+            
+            return {
+                "model_architecture": model_architecture,
+                "current_profile": profile,
+                "concentration_errors_normalized": concentration_errors,
+                "voltage_errors": voltage_errors
+            }
+            
+        finally:
+            # Restore original family configuration
+            self.data_config['family'] = original_family 

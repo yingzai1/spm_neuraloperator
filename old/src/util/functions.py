@@ -213,27 +213,54 @@ def simulate_single(I_func,t, soc=0.5, params = pybamm.ParameterValues("Chen2020
     cn_target = sol["Negative particle concentration"].entries[:, 0, :]
     return cn_target, c0
 
-def save_model_params(params, directory="./trained_models", prefix = "anode", family = "CC", parameter_name = "Prada2013", N_total = None):
-    """Serialize and save model params with a timestamped filename."""
-    os.makedirs(directory, exist_ok=True)
-    # Create a unique timestamp string, e.g. "2025-03-06_14-20-59"
-    timestamp_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+def save_model_params(params, directory: str, prefix: str = "", family: str = "", 
+                     parameter_name: str = "", N_total: int = 0):
+    """
+    Save model parameters to a msgpack file with proper filename generation.
     
-    # Construct filename, e.g. "./checkpoints/model_params_2025-03-06_14-20-59.msgpack"
-    if N_total is None:
-        filename = os.path.join(directory, f"{prefix}_{parameter_name}_{family}_{timestamp_str}.msgpack")
+    Args:
+        params: Model parameters to save
+        directory: Directory to save the model in
+        prefix: Prefix for filename (will be ignored, kept for compatibility)
+        family: Current profile family (CC, PLS, Triangle, GRF)
+        parameter_name: Parameter set name (Chen2020, Prada2013, etc.)
+        N_total: Total number of samples in dataset
+        
+    Returns:
+        str: Full path to saved model file
+    """
+    import os
+    from pathlib import Path
+    from datetime import datetime
+    import flax.serialization
+    
+    # Create directory if it doesn't exist
+    Path(directory).mkdir(parents=True, exist_ok=True)
+    
+    # Generate timestamp
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    
+    # Extract electrode from prefix if present
+    electrode = ""
+    if prefix.startswith("anode_") or prefix.startswith("cathode_"):
+        electrode = prefix.split("_")[0]
+    
+    # Generate filename: electrode__parameter_family_N_total_timestamp.msgpack
+    # Only include family after parameter name, not as prefix
+    if electrode:
+        filename = f"{electrode}__{parameter_name}_{family}_{N_total}_{timestamp}.msgpack"
     else:
-        filename = os.path.join(directory, f"{prefix}_{parameter_name}_{family}_{N_total}_{timestamp_str}.msgpack")
-
-    # Convert params PyTree to a bytes object
+        filename = f"{parameter_name}_{family}_{N_total}_{timestamp}.msgpack"
+    
+    filepath = os.path.join(directory, filename)
+    
+    # Serialize and save parameters
     param_bytes = flax.serialization.to_bytes(params)
-
-    # Write to disk
-    with open(filename, "wb") as f:
+    with open(filepath, 'wb') as f:
         f.write(param_bytes)
-
-    print(f"Saved model parameters to {filename}")
-    return filename
+    
+    print(f"✅ Model saved to: {filepath}")
+    return filepath
 
 def load_model_params(filename):
     # Read the saved bytes
