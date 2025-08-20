@@ -1,7 +1,7 @@
 datagen:
   # --- General Experiment Setup ---
   output_dir: "data/dataset/DeepONet"
-  parameter_set: ["Prada2013", "Chen2020"]
+  parameter_set: ["Prada2013"] # ["Prada2013", "Chen2020"]
   n_workers: 60
 
   # --- Parameter Sampling ---
@@ -17,7 +17,7 @@ datagen:
     D_p: "Dca"
 
   # --- Current Profiles ---
-  current_families: ["CC"]
+  current_families: ["CC", "GRF", "PLS", "Triangle"]
 
   # --- PyBaMM Simulation Settings ---
   pybamm_settings:

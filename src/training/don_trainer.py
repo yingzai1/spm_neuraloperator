@@ -243,7 +243,7 @@ class DONTrainer(BaseTrainer):
             }
             
             self.plotter.plot_don_predictions(
-                model.apply, params, data_dict, self.config, electrode
+                model.apply, params, data_dict, self.config, electrode, family=family
             )
         
         return params, train_losses, test_losses 

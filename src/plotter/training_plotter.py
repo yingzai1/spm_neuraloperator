@@ -201,7 +201,8 @@ class TrainingPlotter(BasePlotter):
                            config: Dict[str, Any],
                            electrode: str,
                            save: bool = True,
-                           show_plot: bool = False) -> None:
+                           show_plot: bool = False,
+                           family: str = "") -> None:
         """
         Special plotting function for DeepONet predictions.
         
@@ -213,6 +214,7 @@ class TrainingPlotter(BasePlotter):
             electrode: Electrode name
             save: Whether to save plots
             show_plot: Whether to display plots
+            family: Current profile family for filename
         """
         # Extract DON-specific data
         train_I = data_dict["train_I"]
@@ -284,5 +286,6 @@ class TrainingPlotter(BasePlotter):
             particle_radius,
             electrode,
             save,
-            show_plot
+            show_plot,
+            family
         ) 

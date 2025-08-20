@@ -14,6 +14,7 @@ model:
 
 data:
   parameter_name: "Prada2013"
+  dataset_dir: "data/dataset/FNO-Cape"
   family:
     - "CC"
     - "Triangle"
@@ -39,5 +40,6 @@ output:
 
 models:
   # Leave empty to use latest trained models
-  # Override with --model flag
-  model_path: null 
+  # Override with --model_anode or --model_cathode flags
+  anode_path: null
+  cathode_path: null 

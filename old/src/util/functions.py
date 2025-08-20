@@ -221,7 +221,7 @@ def save_model_params(params, directory: str, prefix: str = "", family: str = ""
     Args:
         params: Model parameters to save
         directory: Directory to save the model in
-        prefix: Prefix for filename (will be ignored, kept for compatibility)
+        prefix: Electrode prefix for filename (e.g., "anode_")
         family: Current profile family (CC, PLS, Triangle, GRF)
         parameter_name: Parameter set name (Chen2020, Prada2013, etc.)
         N_total: Total number of samples in dataset
@@ -240,17 +240,8 @@ def save_model_params(params, directory: str, prefix: str = "", family: str = ""
     # Generate timestamp
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     
-    # Extract electrode from prefix if present
-    electrode = ""
-    if prefix.startswith("anode_") or prefix.startswith("cathode_"):
-        electrode = prefix.split("_")[0]
-    
-    # Generate filename: electrode__parameter_family_N_total_timestamp.msgpack
-    # Only include family after parameter name, not as prefix
-    if electrode:
-        filename = f"{electrode}__{parameter_name}_{family}_{N_total}_{timestamp}.msgpack"
-    else:
-        filename = f"{parameter_name}_{family}_{N_total}_{timestamp}.msgpack"
+    # Generate filename: electrode_parameter_family_N_total_timestamp.msgpack
+    filename = f"{prefix}{parameter_name}_{family}_{N_total}_{timestamp}.msgpack"
     
     filepath = os.path.join(directory, filename)
     

@@ -45,27 +45,22 @@ class ErrorAnalyzer:
         parameter_name = self.data_config["parameter_name"]
         family = self.data_config["family"]
         n_total = self.data_config["n_total"]
+        dataset_dir = self.data_config.get("dataset_dir", "data")  # Default to "data" for backward compatibility
         
         # Handle single family (the multiple family logic is now in analyze_model)
         if isinstance(family, list):
-            raise ValueError("load_dataset should only be called with single family. Use analyze_model for multiple families.")
+            raise ValueError("load_dataset should only be called with a single family. Use analyze_model for multiple families.")
         
-        # Try different possible dataset paths
-        possible_paths = [
-            f"data/dataset/FNO/{parameter_name}_{family}_{n_total}.npz",
-            f"data/dataset/FNO-Cape/{parameter_name}_{family}_{n_total}.npz", 
-            f"data/dataset/DeepONet/{parameter_name}_{family}_{n_total}.npz",
-            f"data/{parameter_name}_{family}_{n_total}.npz"
-        ]
+        # Construct the dataset path
+        data_path = Path(dataset_dir) / f"{parameter_name}_{family}_{n_total}.npz"
         
-        data_path = None
-        for path in possible_paths:
-            if Path(path).exists():
-                data_path = path
-                break
-                
-        if data_path is None:
-            raise FileNotFoundError(f"Dataset not found for {parameter_name}_{family}_{n_total}.npz in any of the expected locations")
+        if not data_path.exists():
+            # Fallback for old data structure if needed
+            fallback_path = Path("data") / f"{parameter_name}_{family}_{n_total}.npz"
+            if fallback_path.exists():
+                data_path = fallback_path
+            else:
+                raise FileNotFoundError(f"Dataset not found: {data_path}")
             
         print(f"📂 Loading dataset from {data_path}")
         data = np.load(data_path)
@@ -125,44 +120,42 @@ class ErrorAnalyzer:
         return filtered_train_data, filtered_test_data
     
     def find_latest_model(self, model_type: str, electrode: str, current_profile: Optional[str] = None) -> Optional[str]:
-        """Find the most recently trained model for given type, electrode, and current profile."""
+        """
+        Find the most recently trained model for a given type, electrode, and current profile.
+        This function strictly searches for electrode-specific models matching the given profile.
+        """
         model_dir = Path(f"models/{model_type}")
         if not model_dir.exists():
             return None
         
-        # For the new naming convention: parameter_name_profile_n_total_timestamp.msgpack
-        # Models are no longer separated by electrode, so we just look for the profile match
+        # If a current profile is specified, we ONLY look for models matching it.
         if current_profile:
-            # Map profile names to ensure consistency
             profile_mapping = {
-                'CC': 'CC',
-                'Triangle': 'Triangle', 
-                'PLS': 'PLS', 
-                'GRF': 'GRF'
+                'CC': 'CC', 'Triangle': 'Triangle', 'PLS': 'PLS', 'GRF': 'GRF'
             }
-            
             profile_id = profile_mapping.get(current_profile, current_profile)
             
-            # New pattern: parameter_name_profile_n_total_timestamp.msgpack
-            # e.g., Prada2013_Triangle_11000_2025-08-19_19-37-34.msgpack
-            pattern = f"*_{profile_id}_*.msgpack"
-            
+            # Pattern for electrode-specific models with profile
+            pattern = f"{electrode}_*_{profile_id}_*.msgpack"
             model_files = list(model_dir.glob(pattern))
+            
             if model_files:
                 # Sort by modification time and return the latest
                 latest_model = max(model_files, key=lambda p: p.stat().st_mtime)
                 return str(latest_model)
-        
-        # Fallback: find any model if no profile-specific model found
-        pattern = "*.msgpack"
-        model_files = list(model_dir.glob(pattern))
-        
-        if not model_files:
-            return None
+            else:
+                # If no model is found for this specific profile, return None.
+                return None
+        else:
+            # If no profile is specified, find the latest model for the electrode.
+            pattern = f"{electrode}_*.msgpack"
+            model_files = list(model_dir.glob(pattern))
             
-        # Sort by modification time and return the latest
-        latest_model = max(model_files, key=lambda p: p.stat().st_mtime)
-        return str(latest_model)
+            if model_files:
+                latest_model = max(model_files, key=lambda p: p.stat().st_mtime)
+                return str(latest_model)
+
+        return None
     
     def load_model_params(self, model_path: str, model_architecture: str) -> Any:
         """Load model parameters from file."""
@@ -512,8 +505,8 @@ class ErrorAnalyzer:
         
         Args:
             model_architecture: Architecture name (FNO, CAPE_FNO2, DON)
-            anode_model_path: Optional path to model file (uses latest if None) - cathode_model_path ignored
-            cathode_model_path: Deprecated - models are now unified
+            anode_model_path: Optional path to anode model (uses latest if None)
+            cathode_model_path: Optional path to cathode model (uses latest if None)
             
         Returns:
             Dictionary containing all error metrics
@@ -599,8 +592,8 @@ class ErrorAnalyzer:
         Args:
             model_architecture: Architecture name (FNO, CAPE_FNO2, DON)  
             profile: Current profile name (CC, Triangle, PLS, GRF)
-            anode_model_path: Optional path to model (uses latest if None) - cathode_model_path ignored
-            cathode_model_path: Deprecated - models are now unified
+            anode_model_path: Optional path to anode model (uses latest if None)
+            cathode_model_path: Optional path to cathode model (uses latest if None)
             
         Returns:
             Dictionary containing error metrics for this profile
@@ -616,30 +609,38 @@ class ErrorAnalyzer:
             train_data, test_data = self.load_dataset()
             train_data, test_data = self.filter_data(train_data, test_data)
             
-            # Find model path if not provided - use anode_model_path as the primary model path
-            model_path = anode_model_path
-            if model_path is None:
-                model_path = self.find_latest_model(model_architecture, "model", profile)
-                if model_path is None:
-                    raise FileNotFoundError(f"No model found for {model_architecture} with profile {profile}")
+            # Find model paths if not provided - look for models trained on this specific profile
+            if anode_model_path is None:
+                anode_model_path = self.find_latest_model(model_architecture, "anode", profile)
+                if anode_model_path is None:
+                    raise FileNotFoundError(f"No anode model found for {model_architecture} with profile {profile}")
+                    
+            if cathode_model_path is None:
+                cathode_model_path = self.find_latest_model(model_architecture, "cathode", profile)
+                if cathode_model_path is None:
+                    raise FileNotFoundError(f"No cathode model found for {model_architecture} with profile {profile}")
             
-            print(f"📁 Using model for {profile}: {model_path}")
+            print(f"📁 Using anode model for {profile}: {anode_model_path}")
+            print(f"📁 Using cathode model for {profile}: {cathode_model_path}")
             
-            # Load single unified model
-            model = self.create_model(model_architecture)
-            model_params = self.load_model_params(model_path, model_architecture)
+            # Load models
+            anode_model = self.create_model(model_architecture)
+            cathode_model = self.create_model(model_architecture)
+            
+            anode_params = self.load_model_params(anode_model_path, model_architecture)
+            cathode_params = self.load_model_params(cathode_model_path, model_architecture)
             
             # Preprocess data for both electrodes
             anode_data = self.preprocess_model_data(train_data, test_data, model_architecture, "anode")
             cathode_data = self.preprocess_model_data(train_data, test_data, model_architecture, "cathode")
             
-            # Run predictions using the same model for both electrodes
+            # Run predictions
             c_pred_anode, c_true_anode = self.run_predictions(
-                model, model_params, model_architecture, anode_data, "anode"
+                anode_model, anode_params, model_architecture, anode_data, "anode"
             )
             
             c_pred_cathode, c_true_cathode = self.run_predictions(
-                model, model_params, model_architecture, cathode_data, "cathode"
+                cathode_model, cathode_params, model_architecture, cathode_data, "cathode"
             )
             
             # Calculate concentration errors

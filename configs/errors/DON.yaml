@@ -10,8 +10,13 @@ model:
     amount_basis: 16
 
 data:
-  parameter_name: "Chen2020"
-  family: "CC"
+  parameter_name: "Prada2013"
+  dataset_dir: "data/dataset/DeepONet"
+  family:
+    - "CC"
+    - "Triangle"
+    - "PLS"
+    - "GRF"
   n_total: 2200
   test_ratio: 0.1
   random_seed: 42
@@ -31,5 +36,6 @@ output:
 
 models:
   # Leave empty to use latest trained models
-  # Override with --model flag
-  model_path: null 
+  # Override with --model_anode or --model_cathode flags
+  anode_path: null
+  cathode_path: null 

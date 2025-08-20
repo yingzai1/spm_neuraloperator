@@ -3,7 +3,6 @@ training:
   dataset:
     # Support multiple parameter names and families for multi-dataset training
     parameter_name: ["Prada2013"]  # Can be array: ["Chen2020", "Prada2013"]
-    # family: ["CC"]  # Can be array: ["GRF", "CC", "Triangle"]
     family: ["CC", "PLS", "Triangle", "GRF"]  # Can be array: ["GRF", "CC", "Triangle"]
     n_total: 2200
     # data_path will be constructed automatically from parameter_name and family arrays
