@@ -168,6 +168,26 @@ Examples:
         action="store_true",
         help="Show plots interactively instead of just saving"
     )
+
+    # Optional model directory overrides per architecture
+    parser.add_argument(
+        "--fno_models_dir",
+        type=str,
+        default=None,
+        help="Directory containing FNO model checkpoints (overrides models/FNO)"
+    )
+    parser.add_argument(
+        "--cape_fno2_models_dir",
+        type=str,
+        default=None,
+        help="Directory containing CAPE_FNO2 model checkpoints (overrides models/CAPE_FNO2)"
+    )
+    parser.add_argument(
+        "--don_models_dir",
+        type=str,
+        default=None,
+        help="Directory containing DON model checkpoints (overrides models/DON)"
+    )
     
     args = parser.parse_args()
     
@@ -196,7 +216,40 @@ Examples:
     try:
         # Run analysis for all models
         print("🔍 Running error analysis for all models...")
-        model_results = analyze_multiple_models(config_paths)
+        # If model dir overrides are provided, inject them into each config and
+        # compute per-profile results to match original structure
+        overridden_results = {}
+        for cfg_path in config_paths:
+            cfg = load_config(cfg_path)
+            model_dirs = {}
+            if args.fno_models_dir:
+                model_dirs["FNO"] = args.fno_models_dir
+            if args.cape_fno2_models_dir:
+                model_dirs["CAPE_FNO2"] = args.cape_fno2_models_dir
+            if args.don_models_dir:
+                model_dirs["DON"] = args.don_models_dir
+
+            model_name = cfg["model"]["architecture"]
+            per_profile = {}
+            for profile in ['CC', 'Triangle', 'PLS', 'GRF']:
+                try:
+                    profile_cfg = cfg.copy()
+                    profile_cfg['data'] = cfg['data'].copy()
+                    profile_cfg['data']['family'] = profile
+                    if model_dirs:
+                        profile_cfg['model'] = cfg['model'].copy()
+                        profile_cfg['model']['model_dirs'] = model_dirs
+                    analyzer = ErrorAnalyzer(profile_cfg)
+                    profile_result = analyzer.analyze_model(model_architecture=model_name,
+                                                            anode_model_path=None,
+                                                            cathode_model_path=None)
+                    per_profile[profile] = profile_result
+                except Exception as e:
+                    print(f"    ⚠️  Warning: Could not analyze {profile} profile: {str(e)}")
+                    continue
+            overridden_results[model_name] = per_profile
+
+        model_results = overridden_results
         
         if len(model_results) < 2:
             print("❌ Error: Need at least 2 successful model analyses for comparison")
@@ -215,13 +268,23 @@ Examples:
         print(f"\n📊 Summary of analyzed models:")
         for model_name, model_data in model_results.items():
             print(f"  {model_name}:")
-            for profile, profile_data in model_data.items():
-                if profile_data:  # Check if data exists for this profile
-                    conc_errors = profile_data["concentration_errors_normalized"]["combined"]
-                    voltage_errors = profile_data["voltage_errors"]
-                    
-                    print(f"    {profile}: Conc nL2: {conc_errors['rel_l2'].mean() * 100:.2f}%, "
-                          f"Volt RMSE: {np.sqrt(voltage_errors['mse'].mean()) * 1000:.2f} mV")
+            # Support both per-profile dict and combined dict with 'profile_results'
+            if isinstance(model_data, dict) and 'profile_results' in model_data and 'families' in model_data:
+                families = model_data.get('families', [])
+                for profile in families:
+                    profile_data = model_data['profile_results'].get(profile)
+                    if profile_data:
+                        conc_errors = profile_data["concentration_errors_normalized"]["combined"]
+                        voltage_errors = profile_data["voltage_errors"]
+                        print(f"    {profile}: Conc nL2: {conc_errors['rel_l2'].mean() * 100:.2f}%, "
+                              f"Volt RMSE: {np.sqrt(voltage_errors['mse'].mean()) * 1000:.2f} mV")
+            else:
+                for profile, profile_data in model_data.items():
+                    if profile_data:  # Check if data exists for this profile
+                        conc_errors = profile_data["concentration_errors_normalized"]["combined"]
+                        voltage_errors = profile_data["voltage_errors"]
+                        print(f"    {profile}: Conc nL2: {conc_errors['rel_l2'].mean() * 100:.2f}%, "
+                              f"Volt RMSE: {np.sqrt(voltage_errors['mse'].mean()) * 1000:.2f} mV")
         
         print(f"\n✅ Metrics comparison plots created successfully!")
         print(f"📁 Plots saved to: {args.output_dir}")

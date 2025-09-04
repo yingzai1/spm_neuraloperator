@@ -141,8 +141,14 @@ class CAPEFNO2Trainer(BaseTrainer):
         # Create model
         model = self.create_model()
         
-        # Initialize parameters
-        init_key = jax.random.PRNGKey(42)
+        # Set random keys (matching old CAPE_FNO implementation)
+        main_key_seed = self.config["training"]["dataset"]["main_key_seed"]
+        random_seed = self.config["training"]["dataset"]["random_seed"]
+        main_key = jax.random.PRNGKey(main_key_seed)
+        key_train, key_test = jax.random.split(main_key)
+        
+        # Initialize parameters (matching old CAPE_FNO implementation)
+        init_key = jax.random.PRNGKey(random_seed)
         dummy_D = jax.random.normal(init_key, (1, 1))
         dummy_R = jax.random.normal(init_key, (1, 1))
         params = model.init(init_key, X_train[:1, ...], dummy_D, dummy_R)

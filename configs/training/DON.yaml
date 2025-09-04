@@ -7,9 +7,10 @@ training:
     n_total: 2200
     # data_path will be constructed automatically from parameter_name and family arrays
     # TODO: change DeepONet to DON everywhere
-    data_dir: "data/dataset/DeepONet"  # Base directory for datasets
+    data_dir: "data/dataset-self/DeepONet"  # Base directory for datasets
     test_ratio: 0.1
-    random_seed: 42
+    main_key_seed: 0  # For creating main JAX random key (matches old implementation)
+    random_seed: 42   # For data splitting and model initialization
   
   preprocessing:
     num_samples_I: 75

@@ -140,8 +140,13 @@ class DONTrainer(BaseTrainer):
         # Create model
         model = self.create_model()
         
-        # Initialize parameters
+        # Set random keys (matching old DON implementation)
+        main_key_seed = self.config["training"]["dataset"]["main_key_seed"]
         random_seed = self.config["training"]["dataset"]["random_seed"]
+        main_key = jax.random.PRNGKey(main_key_seed)
+        key_train, key_test = jax.random.split(main_key)
+        
+        # Initialize parameters (matching old DON implementation)
         key1, key2 = jax.random.split(jax.random.PRNGKey(random_seed))
         dummy_I = jax.random.normal(key1, (num_samples_I,))
         dummy_c0 = jax.random.normal(key1, (num_samples_c0,))

@@ -240,7 +240,14 @@ class MetricsComparisonOrchestrator:
         Returns:
             Tuple of (metric_data, models, datasets)
         """
-        models = list(model_results.keys())
+        # Enforce requested model order for concentration plot
+        present_models = list(model_results.keys())
+        desired_order_keys = ["DON", "FNO", "CAPE_FNO2"]
+        ordered_keys = [k for k in desired_order_keys if k in present_models] + [
+            k for k in present_models if k not in desired_order_keys
+        ]
+        display_map = {"CAPE_FNO2": "PE-FNO"}
+        models = [display_map.get(k, k) for k in ordered_keys]
         datasets = ['CC', 'Triangle', 'PLS', 'GRF']  # All current profiles
         
         # Initialize metric arrays
@@ -251,8 +258,8 @@ class MetricsComparisonOrchestrator:
             'MAE': np.zeros((len(datasets), len(models)))
         }
         
-        for j, model_name in enumerate(models):
-            result = model_results[model_name]
+        for j, model_key in enumerate(ordered_keys):
+            result = model_results[model_key]
             
             for i, dataset in enumerate(datasets):
                 if dataset in result:
@@ -292,7 +299,12 @@ class MetricsComparisonOrchestrator:
         Returns:
             Tuple of (metric_data, models, datasets)
         """
-        models = list(model_results.keys())
+        # Enforce requested model order and exclude DON for voltage plot
+        present_models = list(model_results.keys())
+        desired_order_keys = ["FNO", "CAPE_FNO2"]  # DON excluded
+        ordered_keys = [k for k in desired_order_keys if k in present_models]
+        display_map = {"CAPE_FNO2": "PE-FNO"}
+        models = [display_map.get(k, k) for k in ordered_keys]
         datasets = ['CC', 'Triangle', 'PLS', 'GRF']  # All current profiles
         
         # Initialize metric arrays
@@ -303,8 +315,8 @@ class MetricsComparisonOrchestrator:
             'MAE': np.zeros((len(datasets), len(models)))
         }
         
-        for j, model_name in enumerate(models):
-            result = model_results[model_name]
+        for j, model_key in enumerate(ordered_keys):
+            result = model_results[model_key]
             
             for i, dataset in enumerate(datasets):
                 if dataset in result:

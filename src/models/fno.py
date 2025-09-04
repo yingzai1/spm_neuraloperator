@@ -99,96 +99,75 @@ class FourierLayer2(nn.Module):
     
 class FourierLayer(nn.Module):
     """A single Fourier layer that performs low-rank parameterization in Fourier space."""
-    k_modes: int  # Number of modes to keep in Fourier space
+    k_modes: int
     out_channels: int
-    
+
     @nn.compact
     def __call__(self, x):
         # x: (batch, H, W, C)
-        batch_size, H, W, in_channels = x.shape
-        
-        # Perform Fourier transform
         x_ft = jnp.fft.rfftn(x, axes=(1, 2), norm=None)  # (batch, H, W//2+1, C)
-        
-        # Truncate to k_modes
-        k_h = min(self.k_modes, H//2)
-        k_w = min(self.k_modes, x_ft.shape[2])
-        
-        # Extract the relevant modes
-        x_ft_low = x_ft[:, :k_h, :k_w, :]
-        x_ft_high = x_ft[:, -k_h:, :k_w, :] if k_h > 0 else jnp.zeros_like(x_ft_low)
-        
-        # Combine low and high frequency modes
-        x_ft_trunc = jnp.concatenate([x_ft_low, x_ft_high], axis=1)
-        
-        # Complex weights
-        W_real = self.param('W_real', nn.initializers.xavier_normal(), 
-                           (2*k_h, k_w, in_channels, self.out_channels))
-        W_imag = self.param('W_imag', nn.initializers.xavier_normal(), 
-                           (2*k_h, k_w, in_channels, self.out_channels))
-        
+
+        H = x_ft.shape[1]
+        W = x.shape[2]
+        W_half = x_ft.shape[2]
+        h_modes = min(self.k_modes, H)
+        w_modes = min(self.k_modes, W_half)
+        x_ft_trunc = x_ft[:, :h_modes, :w_modes, :]
+
+        # Complex weights with He init (match old implementation)
+        in_channels = x.shape[-1]
+        W_real = self.param('W_real', nn.initializers.he_normal(), (h_modes, w_modes, in_channels, self.out_channels))
+        W_imag = self.param('W_imag', nn.initializers.he_normal(), (h_modes, w_modes, in_channels, self.out_channels))
+
         # Apply linear transformation in Fourier space
         x_real = jnp.real(x_ft_trunc)
         x_imag = jnp.imag(x_ft_trunc)
-        
+
         out_real = jnp.einsum('bhwi,hwio->bhwo', x_real, W_real) - jnp.einsum('bhwi,hwio->bhwo', x_imag, W_imag)
         out_imag = jnp.einsum('bhwi,hwio->bhwo', x_real, W_imag) + jnp.einsum('bhwi,hwio->bhwo', x_imag, W_real)
-        
-        # Reconstruct full frequency domain
-        out_ft = jnp.zeros((batch_size, H, x_ft.shape[2], self.out_channels), dtype=complex)
-        out_complex = out_real + 1j * out_imag
-        
-        out_ft = out_ft.at[:, :k_h, :k_w, :].set(out_complex[:, :k_h, :, :])
-        if k_h > 0:
-            out_ft = out_ft.at[:, -k_h:, :k_w, :].set(out_complex[:, k_h:, :, :])
-        
+
+        # Pack real/imag and pad back to full frequency size
+        out_complex = jnp.stack([out_real, out_imag], axis=-1)  # (batch, h_modes, w_modes, out_channels, 2)
+        pad_h = H - h_modes
+        pad_w = W_half - w_modes
+        out_ft = jnp.pad(out_complex, ((0, 0), (0, pad_h), (0, pad_w), (0, 0), (0, 0)))
+        out_ft_complex = out_ft[..., 0] + 1j * out_ft[..., 1]
+
         # Inverse Fourier transform
-        x_out = jnp.fft.irfftn(out_ft, s=(H, W), axes=(1, 2), norm=None)
-        
-        return x_out
+        x_out = jnp.fft.irfftn(out_ft_complex, s=(H, W), axes=(1, 2), norm=None)
+        return x_out.real
 
 class FNOBlock(nn.Module):
-    """A single FNO block consisting of Fourier layer + MLP."""
+    """Legacy placeholder; not used in the aligned FNO architecture."""
     k_modes: int
     hidden_channels: int
-    
+
     @nn.compact
     def __call__(self, x):
-        # Fourier layer
-        fourier_out = FourierLayer(self.k_modes, self.hidden_channels)(x)
-        
-        # MLP (applied pointwise)
-        mlp_out = nn.Dense(self.hidden_channels)(x)
-        mlp_out = nn.gelu(mlp_out)
-        mlp_out = nn.Dense(self.hidden_channels)(mlp_out)
-        
-        # Residual connection and activation
-        x_out = fourier_out + mlp_out
-        x_out = nn.gelu(x_out)
-        
-        return x_out
+        # Keep for backward compatibility if needed, but unused.
+        y = FourierLayer(self.k_modes, self.hidden_channels)(x)
+        y = y + nn.Dense(self.hidden_channels)(x)
+        y = nn.relu(y)
+        return y
 
 class FNO(nn.Module):
-    """Fourier Neural Operator for learning operators on structured grids."""
+    """FNO aligned to old/src implementation for checkpoint compatibility."""
     k_modes: int = 10
-    fno_depth: int = 6  
+    fno_depth: int = 6
     hidden_channels: int = 32
     output_channels: int = 1
-    
+
     @nn.compact
     def __call__(self, x):
-        # x: (batch, H, W, in_channels)
-        
         # Lifting layer
         x = nn.Dense(self.hidden_channels)(x)
-        
-        # FNO blocks
+
+        # Apply several Fourier layers with residual Dense and ReLU (legacy behavior)
         for _ in range(self.fno_depth):
-            x = FNOBlock(self.k_modes, self.hidden_channels)(x)
-        
-        # Projection layer
-        x = nn.Dense(self.hidden_channels)(x)
-        x = nn.gelu(x)
+            x_res = FourierLayer(k_modes=self.k_modes, out_channels=self.hidden_channels)(x)
+            x = x_res + nn.Dense(self.hidden_channels)(x)
+            x = nn.relu(x)
+
+        # Projection to output
         x = nn.Dense(self.output_channels)(x)
-        
-        return x 
+        return x

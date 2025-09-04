@@ -25,6 +25,8 @@ class ErrorAnalyzer:
         self.model_config = config["model"]
         self.data_config = config["data"]
         self.error_config = config.get("error_analysis", {})
+        # Optional per-architecture model directory overrides, e.g., {"FNO": "models-00-ali/FNO"}
+        self.model_dirs = self.model_config.get("model_dirs", {})
         
         # Import utility functions from old structure
         from old.src.util.FNO_util import preprocess_data, train_test_split, remove_padding, normalise_diffusion
@@ -124,7 +126,9 @@ class ErrorAnalyzer:
         Find the most recently trained model for a given type, electrode, and current profile.
         This function strictly searches for electrode-specific models matching the given profile.
         """
-        model_dir = Path(f"models/{model_type}")
+        # Honor override directory if provided for this architecture
+        override_dir = self.model_dirs.get(model_type)
+        model_dir = Path(override_dir) if override_dir else Path(f"models/{model_type}")
         if not model_dir.exists():
             return None
         
@@ -160,32 +164,61 @@ class ErrorAnalyzer:
     def load_model_params(self, model_path: str, model_architecture: str) -> Any:
         """Load model parameters from file."""
         param_bytes = self.functions.load_model_params(model_path)
-        
+
         # Create dummy model to get the parameter structure
         model = self.create_model(model_architecture)
-        
+
         if model_architecture == "FNO":
             init_key = jax.random.PRNGKey(42)
             dummy_input = jax.random.normal(init_key, (1, 24, 85, 4))
             dummy_params = model.init(init_key, dummy_input)
+            params = flax.serialization.from_bytes(dummy_params, param_bytes)
+            return params
         elif model_architecture == "CAPE_FNO2":
             init_key = jax.random.PRNGKey(42)
             dummy_input = jax.random.normal(init_key, (1, 24, 85, 4))
             dummy_D = jax.random.normal(init_key, (1, 1))
             dummy_R = jax.random.normal(init_key, (1, 1))
             dummy_params = model.init(init_key, dummy_input, dummy_D, dummy_R)
+            params = flax.serialization.from_bytes(dummy_params, param_bytes)
+            return params
         elif model_architecture == "DON":
+            # Autodetect basis size to avoid shape mismatches across families
+            preprocessing = self.data_config["preprocessing"]
+            num_samples_I = preprocessing["num_samples_I"]
+            num_samples_c0 = preprocessing["num_samples_c0"]
+
             init_key = jax.random.PRNGKey(42)
-            dummy_I = jax.random.normal(init_key, (75,))
-            dummy_c0 = jax.random.normal(init_key, (20,))
-            dummy_trunk = jax.random.normal(init_key, (1500, 2))
-            dummy_params = model.init(init_key, dummy_I, dummy_c0, dummy_trunk)
+            dummy_I = jax.random.normal(init_key, (num_samples_I,))
+            dummy_c0 = jax.random.normal(init_key, (num_samples_c0,))
+            dummy_trunk = jax.random.normal(init_key, (num_samples_I * num_samples_c0, 2))
+
+            # Try a few common basis sizes
+            candidate_basis = [self.model_config["don"].get("amount_basis", 16), 16, 32, 64, 128]
+            tried = set()
+            last_err = None
+            for M in candidate_basis:
+                if M in tried:
+                    continue
+                tried.add(M)
+                try:
+                    # Build a model with this basis size
+                    branch_layers = [self.model_config["don"]["width"]] * self.model_config["don"]["depth"] + [M]
+                    trunk_layers = list(branch_layers)
+                    from ..models.deeponet import DeepONet as DONModel  # local import
+                    don_model = DONModel(branch_layers=branch_layers, trunk_layers=trunk_layers)
+                    dummy_params = don_model.init(init_key, dummy_I, dummy_c0, dummy_trunk)
+                    params = flax.serialization.from_bytes(dummy_params, param_bytes)
+                    # Dry run apply
+                    _ = don_model.apply(params, dummy_I, dummy_c0, dummy_trunk)
+                    # Cache detected basis for downstream use by returning tuple
+                    return params
+                except Exception as e:
+                    last_err = e
+                    continue
+            raise RuntimeError(f"Failed to load DON params from {model_path} with autodetect: {last_err}")
         else:
             raise ValueError(f"Unknown model architecture: {model_architecture}")
-            
-        # Deserialize parameters
-        params = flax.serialization.from_bytes(dummy_params, param_bytes)
-        return params
     
     def create_model(self, model_architecture: str) -> Any:
         """Create model instance based on architecture."""
@@ -302,7 +335,10 @@ class ErrorAnalyzer:
                 preprocessing["padding_t"]
             )
             
-            return c_test_pred_unpadded.squeeze(), c_test_true_unpadded.squeeze()
+            pred = c_test_pred_unpadded.squeeze()
+            true = c_test_true_unpadded.squeeze()
+            print(f"    ▶ {model_architecture} {electrode} shapes (pred/true): {pred.shape} / {true.shape}")
+            return pred, true
             
         elif model_architecture == "CAPE_FNO2":
             X_train, Y_train, X_test, Y_test = model_data
@@ -408,7 +444,10 @@ class ErrorAnalyzer:
                 preprocessing["padding_t"]
             )
             
-            return c_test_pred_unpadded.squeeze(), c_test_true_unpadded.squeeze()
+            pred = c_test_pred_unpadded.squeeze()
+            true = c_test_true_unpadded.squeeze()
+            print(f"    ▶ {model_architecture} {electrode} shapes (pred/true): {pred.shape} / {true.shape}")
+            return pred, true
             
         elif model_architecture == "DON":
             train_I, train_c0, test_I, test_c0, train_cn, test_cn, trunk_points = model_data
@@ -423,13 +462,14 @@ class ErrorAnalyzer:
             num_samples_c0 = self.data_config["preprocessing"]["num_samples_c0"]
             c_test_pred_reshaped = c_test_pred.reshape(-1, num_samples_c0, num_samples_I)
             
+            print(f"    ▶ {model_architecture} {electrode} shapes (pred/true): {c_test_pred_reshaped.shape} / {test_cn.shape}")
             return c_test_pred_reshaped, test_cn
             
         else:
             raise ValueError(f"Unknown model architecture: {model_architecture}")
     
     def calculate_concentration_errors(self, c_pred_anode: np.ndarray, c_true_anode: np.ndarray,
-                                     c_pred_cathode: np.ndarray, c_true_cathode: np.ndarray) -> Dict[str, Dict[str, np.ndarray]]:
+                                     c_pred_cathode: np.ndarray, c_true_cathode: np.ndarray) -> Tuple[Dict[str, Dict[str, np.ndarray]], Dict[str, Dict[str, np.ndarray]]]:
         """Calculate concentration prediction errors for both electrodes."""
         # Battery parameters for scaling
         parameter_name = self.data_config["parameter_name"]
@@ -457,11 +497,17 @@ class ErrorAnalyzer:
             concentration_errors_anode_norm, concentration_errors_cathode_norm
         )
         
-        return {
+        errors_normalized = {
             "anode": concentration_errors_anode_norm,
             "cathode": concentration_errors_cathode_norm,
             "combined": concentration_errors_all_norm
         }
+        errors_scaled = {
+            "anode": concentration_errors_anode,
+            "cathode": concentration_errors_cathode,
+            "combined": concentration_errors_all
+        }
+        return errors_normalized, errors_scaled
 
     def calculate_voltage_errors(self, c_pred_anode: np.ndarray, c_true_anode: np.ndarray,
                                c_pred_cathode: np.ndarray, c_true_cathode: np.ndarray,
@@ -529,7 +575,8 @@ class ErrorAnalyzer:
             print("📊 Running separate analysis for each profile to match trained models with corresponding datasets...")
             
             profile_results = {}
-            combined_concentration_errors = {"anode": {}, "cathode": {}, "combined": {}}
+            combined_concentration_errors_normalized = {"anode": {}, "cathode": {}, "combined": {}}
+            combined_concentration_errors_scaled = {"anode": {}, "cathode": {}, "combined": {}}
             combined_voltage_errors = {}
             
             for profile in families:
@@ -542,16 +589,24 @@ class ErrorAnalyzer:
                     )
                     profile_results[profile] = result
                     
-                    # Accumulate results for combined metrics
+                    # Accumulate results for combined metrics (normalized and scaled)
                     for electrode in ["anode", "cathode", "combined"]:
-                        if electrode not in combined_concentration_errors:
-                            combined_concentration_errors[electrode] = {}
-                        
-                        conc_errors = result["concentration_errors_normalized"][electrode]
-                        for metric, values in conc_errors.items():
-                            if metric not in combined_concentration_errors[electrode]:
-                                combined_concentration_errors[electrode][metric] = []
-                            combined_concentration_errors[electrode][metric].extend(values)
+                        if electrode not in combined_concentration_errors_normalized:
+                            combined_concentration_errors_normalized[electrode] = {}
+                        if electrode not in combined_concentration_errors_scaled:
+                            combined_concentration_errors_scaled[electrode] = {}
+
+                        conc_errors_norm = result["concentration_errors_normalized"][electrode]
+                        for metric, values in conc_errors_norm.items():
+                            if metric not in combined_concentration_errors_normalized[electrode]:
+                                combined_concentration_errors_normalized[electrode][metric] = []
+                            combined_concentration_errors_normalized[electrode][metric].extend(values)
+
+                        conc_errors_scaled = result["concentration_errors"][electrode]
+                        for metric, values in conc_errors_scaled.items():
+                            if metric not in combined_concentration_errors_scaled[electrode]:
+                                combined_concentration_errors_scaled[electrode][metric] = []
+                            combined_concentration_errors_scaled[electrode][metric].extend(values)
                     
                     # Accumulate voltage errors
                     volt_errors = result["voltage_errors"]
@@ -565,10 +620,16 @@ class ErrorAnalyzer:
                     continue
             
             # Convert accumulated lists to numpy arrays
-            for electrode in combined_concentration_errors:
-                for metric in combined_concentration_errors[electrode]:
-                    combined_concentration_errors[electrode][metric] = np.array(
-                        combined_concentration_errors[electrode][metric]
+            for electrode in combined_concentration_errors_normalized:
+                for metric in combined_concentration_errors_normalized[electrode]:
+                    combined_concentration_errors_normalized[electrode][metric] = np.array(
+                        combined_concentration_errors_normalized[electrode][metric]
+                    )
+
+            for electrode in combined_concentration_errors_scaled:
+                for metric in combined_concentration_errors_scaled[electrode]:
+                    combined_concentration_errors_scaled[electrode][metric] = np.array(
+                        combined_concentration_errors_scaled[electrode][metric]
                     )
             
             for metric in combined_voltage_errors:
@@ -579,7 +640,8 @@ class ErrorAnalyzer:
                 "model_architecture": model_architecture,
                 "families": families,
                 "profile_results": profile_results,
-                "concentration_errors_normalized": combined_concentration_errors,
+                "concentration_errors_normalized": combined_concentration_errors_normalized,
+                "concentration_errors": combined_concentration_errors_scaled,
                 "voltage_errors": combined_voltage_errors
             }
 
@@ -624,11 +686,46 @@ class ErrorAnalyzer:
             print(f"📁 Using cathode model for {profile}: {cathode_model_path}")
             
             # Load models
-            anode_model = self.create_model(model_architecture)
-            cathode_model = self.create_model(model_architecture)
-            
-            anode_params = self.load_model_params(anode_model_path, model_architecture)
-            cathode_params = self.load_model_params(cathode_model_path, model_architecture)
+            if model_architecture == "DON":
+                # Build models with autodetected basis sizes separately per electrode
+                preprocessing = self.data_config["preprocessing"]
+                num_samples_I = preprocessing["num_samples_I"]
+                num_samples_c0 = preprocessing["num_samples_c0"]
+                # Reuse the autodetection logic to find matching model structure
+                def build_don(model_path: str):
+                    init_key = jax.random.PRNGKey(0)
+                    dummy_I = jax.random.normal(init_key, (num_samples_I,))
+                    dummy_c0 = jax.random.normal(init_key, (num_samples_c0,))
+                    dummy_trunk = jax.random.normal(init_key, (num_samples_I * num_samples_c0, 2))
+                    param_bytes = self.functions.load_model_params(model_path)
+                    candidate_basis = [self.model_config["don"].get("amount_basis", 16), 16, 32, 64, 128]
+                    tried = set()
+                    last_err = None
+                    for M in candidate_basis:
+                        if M in tried:
+                            continue
+                        tried.add(M)
+                        try:
+                            branch_layers = [self.model_config["don"]["width"]] * self.model_config["don"]["depth"] + [M]
+                            trunk_layers = list(branch_layers)
+                            from ..models.deeponet import DeepONet as DONModel
+                            don_model = DONModel(branch_layers=branch_layers, trunk_layers=trunk_layers)
+                            dummy_params = don_model.init(init_key, dummy_I, dummy_c0, dummy_trunk)
+                            params = flax.serialization.from_bytes(dummy_params, param_bytes)
+                            _ = don_model.apply(params, dummy_I, dummy_c0, dummy_trunk)
+                            return don_model, params
+                        except Exception as e:
+                            last_err = e
+                            continue
+                    raise RuntimeError(f"Failed to build DON model from {model_path} with autodetect: {last_err}")
+
+                anode_model, anode_params = build_don(anode_model_path)
+                cathode_model, cathode_params = build_don(cathode_model_path)
+            else:
+                anode_model = self.create_model(model_architecture)
+                cathode_model = self.create_model(model_architecture)
+                anode_params = self.load_model_params(anode_model_path, model_architecture)
+                cathode_params = self.load_model_params(cathode_model_path, model_architecture)
             
             # Preprocess data for both electrodes
             anode_data = self.preprocess_model_data(train_data, test_data, model_architecture, "anode")
@@ -644,7 +741,7 @@ class ErrorAnalyzer:
             )
             
             # Calculate concentration errors
-            concentration_errors = self.calculate_concentration_errors(
+            concentration_errors_normalized, concentration_errors_scaled = self.calculate_concentration_errors(
                 c_pred_anode, c_true_anode, c_pred_cathode, c_true_cathode
             )
             
@@ -658,7 +755,8 @@ class ErrorAnalyzer:
             return {
                 "model_architecture": model_architecture,
                 "current_profile": profile,
-                "concentration_errors_normalized": concentration_errors,
+                "concentration_errors_normalized": concentration_errors_normalized,
+                "concentration_errors": concentration_errors_scaled,
                 "voltage_errors": voltage_errors
             }
             

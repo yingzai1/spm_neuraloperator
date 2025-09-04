@@ -72,8 +72,14 @@ class FNOTrainer(BaseTrainer):
         # Create model
         model = self.create_model()
         
-        # Initialize parameters
-        init_key = jax.random.PRNGKey(42)
+        # Set random keys (matching old FNO implementation)
+        main_key_seed = self.config["training"]["dataset"]["main_key_seed"]
+        random_seed = self.config["training"]["dataset"]["random_seed"]
+        main_key = jax.random.PRNGKey(main_key_seed)
+        key_train, key_test = jax.random.split(main_key)
+        
+        # Initialize parameters (matching old FNO implementation)
+        init_key = jax.random.PRNGKey(random_seed)
         params = model.init(init_key, X_train[:1, ...])
         
         # Setup optimizer

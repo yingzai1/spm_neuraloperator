@@ -1,9 +1,9 @@
 error_analysis:
-  name: "CAPE_FNO2"
+  name: "PE_FNO"
   description: "Error analysis configuration for CAPE-FNO2 models"
 
 model:
-  architecture: "CAPE_FNO2"
+  architecture: "PE-FNO"
   cape_fno2:
     k_modes: [5, 20]
     fno_depth: 8
@@ -14,7 +14,7 @@ model:
 
 data:
   parameter_name: "Prada2013"
-  dataset_dir: "data/dataset/FNO-Cape"
+  dataset_dir: "data/dataset-self/FNO-Cape"
   family:
     - "CC"
     - "Triangle"

@@ -11,7 +11,7 @@ model:
 
 data:
   parameter_name: "Prada2013"
-  dataset_dir: "data/dataset/DeepONet"
+  dataset_dir: "data/dataset-self/DeepONet"
   family:
     - "CC"
     - "Triangle"
