@@ -42,6 +42,30 @@ class ErrorAnalyzer:
         self.calc_error_metrics_all = calc_error_metrics_all
         self.functions = functions
         
+    def _canonical_architecture(self, name: str) -> str:
+        """Map various architecture aliases to a canonical internal name."""
+        alias = (name or "").strip().lower()
+        mapping = {
+            "fno": "FNO",
+            "don": "DON",
+            "cape_fno2": "CAPE_FNO2",
+            "pe-fno": "CAPE_FNO2",
+            "pe_fno": "CAPE_FNO2",
+            "pefno": "CAPE_FNO2",
+        }
+        return mapping.get(alias, name)
+
+    def _config_key_for_architecture(self, canonical_arch: str) -> str:
+        """Return the config subkey under model for a canonical architecture name."""
+        config_keys = {
+            "FNO": "fno",
+            "DON": "don",
+            "CAPE_FNO2": "cape_fno2",
+        }
+        if canonical_arch not in config_keys:
+            raise ValueError(f"Unknown model architecture: {canonical_arch}")
+        return config_keys[canonical_arch]
+
     def load_dataset(self) -> Tuple[Dict, Dict]:
         """Load and split dataset."""
         parameter_name = self.data_config["parameter_name"]
@@ -166,15 +190,16 @@ class ErrorAnalyzer:
         param_bytes = self.functions.load_model_params(model_path)
 
         # Create dummy model to get the parameter structure
-        model = self.create_model(model_architecture)
+        canonical_arch = self._canonical_architecture(model_architecture)
+        model = self.create_model(canonical_arch)
 
-        if model_architecture == "FNO":
+        if canonical_arch == "FNO":
             init_key = jax.random.PRNGKey(42)
             dummy_input = jax.random.normal(init_key, (1, 24, 85, 4))
             dummy_params = model.init(init_key, dummy_input)
             params = flax.serialization.from_bytes(dummy_params, param_bytes)
             return params
-        elif model_architecture == "CAPE_FNO2":
+        elif canonical_arch == "CAPE_FNO2":
             init_key = jax.random.PRNGKey(42)
             dummy_input = jax.random.normal(init_key, (1, 24, 85, 4))
             dummy_D = jax.random.normal(init_key, (1, 1))
@@ -182,7 +207,7 @@ class ErrorAnalyzer:
             dummy_params = model.init(init_key, dummy_input, dummy_D, dummy_R)
             params = flax.serialization.from_bytes(dummy_params, param_bytes)
             return params
-        elif model_architecture == "DON":
+        elif canonical_arch == "DON":
             # Autodetect basis size to avoid shape mismatches across families
             preprocessing = self.data_config["preprocessing"]
             num_samples_I = preprocessing["num_samples_I"]
@@ -218,20 +243,22 @@ class ErrorAnalyzer:
                     continue
             raise RuntimeError(f"Failed to load DON params from {model_path} with autodetect: {last_err}")
         else:
-            raise ValueError(f"Unknown model architecture: {model_architecture}")
+            raise ValueError(f"Unknown model architecture: {canonical_arch}")
     
     def create_model(self, model_architecture: str) -> Any:
         """Create model instance based on architecture."""
-        model_params = self.model_config[model_architecture.lower()]
+        canonical_arch = self._canonical_architecture(model_architecture)
+        config_key = self._config_key_for_architecture(canonical_arch)
+        model_params = self.model_config[config_key]
         
-        if model_architecture == "FNO":
+        if canonical_arch == "FNO":
             return FNO(
                 k_modes=model_params["k_modes"],
                 fno_depth=model_params["fno_depth"],
                 hidden_channels=model_params["hidden_channels"],
                 output_channels=model_params["output_channels"]
             )
-        elif model_architecture == "CAPE_FNO2":
+        elif canonical_arch == "CAPE_FNO2":
             k_modes = model_params["k_modes"]
             if isinstance(k_modes, list):
                 k_modes_tuple = tuple(k_modes)
@@ -246,7 +273,7 @@ class ErrorAnalyzer:
                 input_channels=model_params["input_channels"],
                 output_channels=model_params["output_channels"]
             )
-        elif model_architecture == "DON":
+        elif canonical_arch == "DON":
             branch_layers = [model_params["width"]] * model_params["depth"] + [model_params["amount_basis"]]
             trunk_layers = branch_layers.copy()
             return DeepONet(
@@ -254,12 +281,13 @@ class ErrorAnalyzer:
                 trunk_layers=trunk_layers
             )
         else:
-            raise ValueError(f"Unknown model architecture: {model_architecture}")
+            raise ValueError(f"Unknown model architecture: {canonical_arch}")
     
     def preprocess_model_data(self, train_data: Dict, test_data: Dict, 
                             model_architecture: str, electrode: str) -> Tuple[Any, Any, Any, Any]:
         """Preprocess data for specific model architecture."""
         preprocessing = self.data_config["preprocessing"]
+        canonical_arch = self._canonical_architecture(model_architecture)
         
         # Extract current and concentration data
         train_I = train_data["current"]
@@ -276,7 +304,7 @@ class ErrorAnalyzer:
             train_cn = train_data["cn_cathode"]
             test_cn = test_data["cn_cathode"]
         
-        if model_architecture in ["FNO", "CAPE_FNO2"]:
+        if canonical_arch in ["FNO", "CAPE_FNO2"]:
             # Grid-based preprocessing
             X_train, Y_train = self.preprocess_data(
                 train_I, train_c0, train_cn,
@@ -296,7 +324,7 @@ class ErrorAnalyzer:
             
             return X_train, Y_train, X_test, Y_test
             
-        elif model_architecture == "DON":
+        elif canonical_arch == "DON":
             # DeepONet uses different data format
             num_samples_I = preprocessing["num_samples_I"]
             num_samples_c0 = preprocessing["num_samples_c0"]
@@ -310,13 +338,14 @@ class ErrorAnalyzer:
             return train_I, train_c0, test_I, test_c0, train_cn, test_cn, trunk_points
         
         else:
-            raise ValueError(f"Unknown model architecture: {model_architecture}")
+            raise ValueError(f"Unknown model architecture: {canonical_arch}")
     
     def run_predictions(self, model: Any, params: Any, model_architecture: str,
                        model_data: Tuple, electrode: str) -> Tuple[np.ndarray, np.ndarray]:
         """Run model predictions on test data."""
+        canonical_arch = self._canonical_architecture(model_architecture)
         
-        if model_architecture == "FNO":
+        if canonical_arch == "FNO":
             X_train, Y_train, X_test, Y_test = model_data
             
             # Run predictions
@@ -339,8 +368,8 @@ class ErrorAnalyzer:
             true = c_test_true_unpadded.squeeze()
             print(f"    ▶ {model_architecture} {electrode} shapes (pred/true): {pred.shape} / {true.shape}")
             return pred, true
-            
-        elif model_architecture == "CAPE_FNO2":
+        
+        elif canonical_arch == "CAPE_FNO2":
             X_train, Y_train, X_test, Y_test = model_data
             
             # Need additional parameter data for CAPE-FNO2
@@ -446,10 +475,10 @@ class ErrorAnalyzer:
             
             pred = c_test_pred_unpadded.squeeze()
             true = c_test_true_unpadded.squeeze()
-            print(f"    ▶ {model_architecture} {electrode} shapes (pred/true): {pred.shape} / {true.shape}")
+            print(f"    ▶ {canonical_arch} {electrode} shapes (pred/true): {pred.shape} / {true.shape}")
             return pred, true
             
-        elif model_architecture == "DON":
+        elif canonical_arch == "DON":
             train_I, train_c0, test_I, test_c0, train_cn, test_cn, trunk_points = model_data
             
             # Run predictions using vectorized model application
@@ -462,11 +491,11 @@ class ErrorAnalyzer:
             num_samples_c0 = self.data_config["preprocessing"]["num_samples_c0"]
             c_test_pred_reshaped = c_test_pred.reshape(-1, num_samples_c0, num_samples_I)
             
-            print(f"    ▶ {model_architecture} {electrode} shapes (pred/true): {c_test_pred_reshaped.shape} / {test_cn.shape}")
+            print(f"    ▶ {canonical_arch} {electrode} shapes (pred/true): {c_test_pred_reshaped.shape} / {test_cn.shape}")
             return c_test_pred_reshaped, test_cn
             
         else:
-            raise ValueError(f"Unknown model architecture: {model_architecture}")
+            raise ValueError(f"Unknown model architecture: {canonical_arch}")
     
     def calculate_concentration_errors(self, c_pred_anode: np.ndarray, c_true_anode: np.ndarray,
                                      c_pred_cathode: np.ndarray, c_true_cathode: np.ndarray) -> Tuple[Dict[str, Dict[str, np.ndarray]], Dict[str, Dict[str, np.ndarray]]]:

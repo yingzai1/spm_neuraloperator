@@ -301,8 +301,11 @@ class MetricsComparisonOrchestrator:
         """
         # Enforce requested model order and exclude DON for voltage plot
         present_models = list(model_results.keys())
-        desired_order_keys = ["FNO", "CAPE_FNO2"]  # DON excluded
-        ordered_keys = [k for k in desired_order_keys if k in present_models]
+        # Support both canonical and display names for PE-FNO
+        preferred_order = ["FNO", "CAPE_FNO2", "PE-FNO"]  # DON excluded
+        ordered_keys = [k for k in preferred_order if k in present_models] + [
+            k for k in present_models if k not in set(preferred_order + ["DON"])
+        ]
         display_map = {"CAPE_FNO2": "PE-FNO"}
         models = [display_map.get(k, k) for k in ordered_keys]
         datasets = ['CC', 'Triangle', 'PLS', 'GRF']  # All current profiles

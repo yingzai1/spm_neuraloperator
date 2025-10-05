@@ -35,7 +35,7 @@ training:
   
   training:
     num_epochs: 50
-    batch_size: 10
+    batch_size: 40
     
     # Learning rate schedule
     scheduler:
@@ -51,4 +51,4 @@ training:
 
 # PyBaMM parameters
 pybamm:
-  t_max: 3600 
+  t_max: 3600
