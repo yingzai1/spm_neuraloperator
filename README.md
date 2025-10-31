@@ -11,6 +11,7 @@ uv sync
 ```bash
 python run_datagen.py configs/data_generation/FNO.yaml
 ```
+Data also avaiable for download [here](https://zenodo.org/uploads/17280393)
 
 ### Training
 ```bash
