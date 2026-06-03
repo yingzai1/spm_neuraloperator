@@ -2,7 +2,7 @@ datagen:
   # --- General Experiment Setup ---
   output_dir: "data/dataset/DeepONet"
   parameter_set: ["Prada2013"] # ["Prada2013", "Chen2020"]
-  n_workers: 60
+  n_workers: 4
 
   # --- Parameter Sampling ---
   sobol_samples_per_soc: [2200]

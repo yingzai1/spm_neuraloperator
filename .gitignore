@@ -1,7 +1,7 @@
 *.pyc
 *.pyo
 __pycache__/*
-data/*
+data/
 plots/*
 trained_models/*
 param_est_files/*
@@ -9,3 +9,5 @@ param_est_files/*
 old/trained_models/*
 models/*
 old/
+.venv/
+demo/

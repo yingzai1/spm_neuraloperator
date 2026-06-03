@@ -6,7 +6,7 @@ training:
     family: ["CC", "PLS", "GRF", "Triangle"]  # Can be array: ["GRF", "CC", "Triangle"]
     n_total: 33011
     # data_path will be constructed automatically from parameter_name and family arrays
-    data_dir: "data/dataset-self/FNO-Cape"  # Base directory for datasets
+    data_dir: "data/dataset/FNO-Cape"  # Base directory for datasets
     test_ratio: 0.1
     main_key_seed: 0  # For creating main JAX random key (matches old implementation)
     random_seed: 42   # For data splitting and model initialization

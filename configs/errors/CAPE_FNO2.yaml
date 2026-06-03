@@ -14,7 +14,7 @@ model:
 
 data:
   parameter_name: "Prada2013"
-  dataset_dir: "data/dataset-self/FNO-Cape"
+  dataset_dir: "data/dataset/FNO-Cape"
   family:
     - "CC"
     - "Triangle"

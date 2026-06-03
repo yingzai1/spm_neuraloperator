@@ -18,7 +18,7 @@ def generate_sobol_samples(samples_per_soc, config):
             samples["soc"] = np.full(n_total, soc_levels[0])
         else:
             # Multiple SoC levels - use Sobol sampling for SoC only
-            sampler = qmc.Sobol(d=1, scramble=True, seed=None)
+            sampler = qmc.Sobol(d=1, scramble=True, seed=42)
             n_power_of_2 = 2**int(np.ceil(np.log2(n_total)))
             u = sampler.random(n_power_of_2)[:n_total]
             soc_indices = (u[:, 0] * len(soc_levels)).astype(int)
@@ -31,7 +31,7 @@ def generate_sobol_samples(samples_per_soc, config):
     lower_bounds, upper_bounds = zip(*param_bounds)
 
     # Create the sampler for SOC + all other parameters
-    sampler = qmc.Sobol(d=1 + len(param_keys), scramble=True, seed=None)
+    sampler = qmc.Sobol(d=1 + len(param_keys), scramble=True, seed=42)
 
     # CORRECTED: Round up to the next power of 2 for Sobol properties
     n_power_of_2 = 2**int(np.ceil(np.log2(n_total)))
