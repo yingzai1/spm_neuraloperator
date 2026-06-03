@@ -8,7 +8,7 @@ from .currents import generate_current_profile
 def create_tasks(samples, family, config):
     """Prepares the list of tasks for the multiprocessing pool."""
     tasks = []
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(seed=42)
     t_max = config["pybamm_settings"]["t_max_s"]
     # TODO: Should be moved to config if it varies
     # TODO: rename C to current

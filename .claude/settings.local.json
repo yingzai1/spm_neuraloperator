@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit -m 'chore: update remote, gitignore \\(.venv/data/demo\\), and sync workspace changes *)",
+      "Bash(git push *)"
+    ]
+  }
+}
