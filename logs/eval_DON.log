@@ -1,0 +1,124 @@
+🔧 Loading configuration from configs/errors/DON.yaml
+🔍 Analyzing DON model for ['CC', 'Triangle', 'PLS', 'GRF'] current profiles...
+📊 Running separate analysis for each profile to match trained models with corresponding datasets...
+
+🔬 Analyzing profile: CC
+🔍 Analyzing DON model for CC current profile...
+📂 Loading dataset from data/dataset/DeepONet/Prada2013_CC_2200.npz
+📁 Using anode model for CC: models/DON/anode_Prada2013_CC_2200_2026-06-04_14-11-10.msgpack
+📁 Using cathode model for CC: models/DON/cathode_Prada2013_CC_2200_2026-06-04_14-12-36.msgpack
+    ▶ DON anode shapes (pred/true): (96, 20, 75) / (96, 20, 75)
+    ▶ DON cathode shapes (pred/true): (96, 20, 75) / (96, 20, 75)
+✅ Analysis complete for DON on CC
+
+🔬 Analyzing profile: Triangle
+🔍 Analyzing DON model for Triangle current profile...
+📂 Loading dataset from data/dataset/DeepONet/Prada2013_Triangle_2200.npz
+📁 Using anode model for Triangle: models/DON/anode_Prada2013_Triangle_2200_2026-06-04_14-19-36.msgpack
+📁 Using cathode model for Triangle: models/DON/cathode_Prada2013_Triangle_2200_2026-06-04_14-22-33.msgpack
+    ▶ DON anode shapes (pred/true): (217, 20, 75) / (217, 20, 75)
+    ▶ DON cathode shapes (pred/true): (217, 20, 75) / (217, 20, 75)
+✅ Analysis complete for DON on Triangle
+
+🔬 Analyzing profile: PLS
+🔍 Analyzing DON model for PLS current profile...
+📂 Loading dataset from data/dataset/DeepONet/Prada2013_PLS_2200.npz
+📁 Using anode model for PLS: models/DON/anode_Prada2013_PLS_2200_2026-06-04_14-14-42.msgpack
+📁 Using cathode model for PLS: models/DON/cathode_Prada2013_PLS_2200_2026-06-04_14-16-39.msgpack
+    ▶ DON anode shapes (pred/true): (139, 20, 75) / (139, 20, 75)
+    ▶ DON cathode shapes (pred/true): (139, 20, 75) / (139, 20, 75)
+✅ Analysis complete for DON on PLS
+
+🔬 Analyzing profile: GRF
+🔍 Analyzing DON model for GRF current profile...
+📂 Loading dataset from data/dataset/DeepONet/Prada2013_GRF_2200.npz
+📁 Using anode model for GRF: models/DON/anode_Prada2013_GRF_2200_2026-06-04_14-24-18.msgpack
+📁 Using cathode model for GRF: models/DON/cathode_Prada2013_GRF_2200_2026-06-04_14-25-53.msgpack
+    ▶ DON anode shapes (pred/true): (107, 20, 75) / (107, 20, 75)
+    ▶ DON cathode shapes (pred/true): (107, 20, 75) / (107, 20, 75)
+✅ Analysis complete for DON on GRF
+
+📊 Error Summary for DON - Profile-by-Profile Analysis:
+======================================================================
+
+🔬 CC Current Profile:
+--------------------------------------------------
+
+🧪 Concentration Errors (Normalized):
+  MAE:       0.003323
+  RMSE:      0.006704
+  Rel L2:    0.797%
+  Rel L∞:    1.524%
+
+⚡ Voltage Errors:
+  MAE:       8.157 mV
+  RMSE:      34.627 mV
+  Rel L2:    0.450%
+  Rel L∞:    1.554%
+--------------------------------------------------
+
+🔬 Triangle Current Profile:
+--------------------------------------------------
+
+🧪 Concentration Errors (Normalized):
+  MAE:       0.011881
+  RMSE:      0.016937
+  Rel L2:    3.350%
+  Rel L∞:    4.001%
+
+⚡ Voltage Errors:
+  MAE:       22.534 mV
+  RMSE:      95.819 mV
+  Rel L2:    1.259%
+  Rel L∞:    3.583%
+--------------------------------------------------
+
+🔬 PLS Current Profile:
+--------------------------------------------------
+
+🧪 Concentration Errors (Normalized):
+  MAE:       0.008260
+  RMSE:      0.012852
+  Rel L2:    2.596%
+  Rel L∞:    3.718%
+
+⚡ Voltage Errors:
+  MAE:       11.609 mV
+  RMSE:      40.978 mV
+  Rel L2:    0.666%
+  Rel L∞:    2.750%
+--------------------------------------------------
+
+🔬 GRF Current Profile:
+--------------------------------------------------
+
+🧪 Concentration Errors (Normalized):
+  MAE:       0.043443
+  RMSE:      0.057116
+  Rel L2:    13.217%
+  Rel L∞:    16.530%
+
+⚡ Voltage Errors:
+  MAE:       40.601 mV
+  RMSE:      126.860 mV
+  Rel L2:    2.091%
+  Rel L∞:    5.784%
+--------------------------------------------------
+
+📊 Combined Summary for DON (All Profiles):
+==================================================
+
+🧪 Concentration Errors (Normalized):
+  MAE:       0.015552
+  RMSE:      0.028010
+  Rel L2:    4.613%
+  Rel L∞:    5.903%
+
+⚡ Voltage Errors:
+  MAE:       20.807 mV
+  RMSE:      85.253 mV
+  Rel L2:    1.132%
+  Rel L∞:    3.449%
+======================================================================
+
+✅ Error analysis complete!

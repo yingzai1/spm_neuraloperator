@@ -1,0 +1,124 @@
+🔧 Loading configuration from configs/errors/FNO.yaml
+🔍 Analyzing FNO model for ['CC', 'Triangle', 'PLS', 'GRF'] current profiles...
+📊 Running separate analysis for each profile to match trained models with corresponding datasets...
+
+🔬 Analyzing profile: CC
+🔍 Analyzing FNO model for CC current profile...
+📂 Loading dataset from data/dataset/FNO/Prada2013_CC_11000.npz
+📁 Using anode model for CC: models/FNO/anode_Prada2013_CC_11000_2026-06-03_23-32-52.msgpack
+📁 Using cathode model for CC: models/FNO/cathode_Prada2013_CC_11000_2026-06-03_23-41-52.msgpack
+    ▶ FNO anode shapes (pred/true): (560, 20, 75) / (560, 20, 75)
+    ▶ FNO cathode shapes (pred/true): (560, 20, 75) / (560, 20, 75)
+✅ Analysis complete for FNO on CC
+
+🔬 Analyzing profile: Triangle
+🔍 Analyzing FNO model for Triangle current profile...
+📂 Loading dataset from data/dataset/FNO/Prada2013_Triangle_11000.npz
+📁 Using anode model for Triangle: models/FNO/anode_Prada2013_Triangle_11000_2026-06-04_00-08-47.msgpack
+📁 Using cathode model for Triangle: models/FNO/cathode_Prada2013_Triangle_11000_2026-06-04_00-17-46.msgpack
+    ▶ FNO anode shapes (pred/true): (830, 20, 75) / (830, 20, 75)
+    ▶ FNO cathode shapes (pred/true): (830, 20, 75) / (830, 20, 75)
+✅ Analysis complete for FNO on Triangle
+
+🔬 Analyzing profile: PLS
+🔍 Analyzing FNO model for PLS current profile...
+📂 Loading dataset from data/dataset/FNO/Prada2013_PLS_11000.npz
+📁 Using anode model for PLS: models/FNO/anode_Prada2013_PLS_11000_2026-06-03_23-50-54.msgpack
+📁 Using cathode model for PLS: models/FNO/cathode_Prada2013_PLS_11000_2026-06-03_23-59-48.msgpack
+    ▶ FNO anode shapes (pred/true): (621, 20, 75) / (621, 20, 75)
+    ▶ FNO cathode shapes (pred/true): (621, 20, 75) / (621, 20, 75)
+✅ Analysis complete for FNO on PLS
+
+🔬 Analyzing profile: GRF
+🔍 Analyzing FNO model for GRF current profile...
+📂 Loading dataset from data/dataset/FNO/Prada2013_GRF_11000.npz
+📁 Using anode model for GRF: models/FNO/anode_Prada2013_GRF_11000_2026-06-04_00-26-47.msgpack
+📁 Using cathode model for GRF: models/FNO/cathode_Prada2013_GRF_11000_2026-06-04_00-35-48.msgpack
+    ▶ FNO anode shapes (pred/true): (432, 20, 75) / (432, 20, 75)
+    ▶ FNO cathode shapes (pred/true): (432, 20, 75) / (432, 20, 75)
+✅ Analysis complete for FNO on GRF
+
+📊 Error Summary for FNO - Profile-by-Profile Analysis:
+======================================================================
+
+🔬 CC Current Profile:
+--------------------------------------------------
+
+🧪 Concentration Errors (Normalized):
+  MAE:       0.000178
+  RMSE:      0.000235
+  Rel L2:    0.058%
+  Rel L∞:    0.105%
+
+⚡ Voltage Errors:
+  MAE:       0.373 mV
+  RMSE:      2.081 mV
+  Rel L2:    0.025%
+  Rel L∞:    0.118%
+--------------------------------------------------
+
+🔬 Triangle Current Profile:
+--------------------------------------------------
+
+🧪 Concentration Errors (Normalized):
+  MAE:       0.000155
+  RMSE:      0.000206
+  Rel L2:    0.046%
+  Rel L∞:    0.099%
+
+⚡ Voltage Errors:
+  MAE:       0.459 mV
+  RMSE:      2.480 mV
+  Rel L2:    0.031%
+  Rel L∞:    0.134%
+--------------------------------------------------
+
+🔬 PLS Current Profile:
+--------------------------------------------------
+
+🧪 Concentration Errors (Normalized):
+  MAE:       0.000593
+  RMSE:      0.000783
+  Rel L2:    0.176%
+  Rel L∞:    0.289%
+
+⚡ Voltage Errors:
+  MAE:       1.120 mV
+  RMSE:      6.274 mV
+  Rel L2:    0.085%
+  Rel L∞:    0.467%
+--------------------------------------------------
+
+🔬 GRF Current Profile:
+--------------------------------------------------
+
+🧪 Concentration Errors (Normalized):
+  MAE:       0.000506
+  RMSE:      0.000663
+  Rel L2:    0.141%
+  Rel L∞:    0.231%
+
+⚡ Voltage Errors:
+  MAE:       1.419 mV
+  RMSE:      9.468 mV
+  Rel L2:    0.123%
+  Rel L∞:    0.612%
+--------------------------------------------------
+
+📊 Combined Summary for FNO (All Profiles):
+==================================================
+
+🧪 Concentration Errors (Normalized):
+  MAE:       0.000334
+  RMSE:      0.000510
+  Rel L2:    0.099%
+  Rel L∞:    0.172%
+
+⚡ Voltage Errors:
+  MAE:       0.777 mV
+  RMSE:      5.380 mV
+  Rel L2:    0.060%
+  Rel L∞:    0.300%
+======================================================================
+
+✅ Error analysis complete!

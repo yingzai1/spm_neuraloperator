@@ -1,0 +1,190 @@
+2026-06-04 16:52:54.158192: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+2026-06-04 16:52:59.156033: E external/xla/xla/service/slow_operation_alarm.cc:73] Trying algorithm eng3{k11=0} for conv %cudnn-conv.1 = (f32[256,24,85,64]{3,2,1,0}, u8[0]{0}) custom-call(%Arg_0.1, %bitcast.7), window={size=3x3 pad=1_1x1_1}, dim_labels=b01f_o01i->b01f, feature_group_count=64, custom_call_target="__cudnn$convForward", metadata={op_name="jit(conv_general_dilated)/jit(main)/conv_general_dilated" source_file="/mnt/d/SCNU/lab/spm_neuraloperator/.venv/lib/python3.12/site-packages/flax/linen/linear.py" source_line=695}, backend_config={"operation_queue_id":"0","wait_on_operation_queues":[],"cudnn_conv_backend_config":{"conv_result_scale":1,"activation_mode":"kNone","side_input_scale":0,"leakyrelu_alpha":0},"force_earliest_schedule":false,"reification_cost":[]} is taking a while...
+2026-06-04 16:52:59.760034: E external/xla/xla/service/slow_operation_alarm.cc:140] The operation took 1.604113449s
+Trying algorithm eng3{k11=0} for conv %cudnn-conv.1 = (f32[256,24,85,64]{3,2,1,0}, u8[0]{0}) custom-call(%Arg_0.1, %bitcast.7), window={size=3x3 pad=1_1x1_1}, dim_labels=b01f_o01i->b01f, feature_group_count=64, custom_call_target="__cudnn$convForward", metadata={op_name="jit(conv_general_dilated)/jit(main)/conv_general_dilated" source_file="/mnt/d/SCNU/lab/spm_neuraloperator/.venv/lib/python3.12/site-packages/flax/linen/linear.py" source_line=695}, backend_config={"operation_queue_id":"0","wait_on_operation_queues":[],"cudnn_conv_backend_config":{"conv_result_scale":1,"activation_mode":"kNone","side_input_scale":0,"leakyrelu_alpha":0},"force_earliest_schedule":false,"reification_cost":[]} is taking a while...
+2026-06-04 16:53:05.438958: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+2026-06-04 16:53:07.765735: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+2026-06-04 16:54:14.469429: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+2026-06-04 16:54:16.826957: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+2026-06-04 16:55:34.107616: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+2026-06-04 16:55:36.482877: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+2026-06-04 16:56:39.669314: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+2026-06-04 16:56:41.869869: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+📋 Using configurations: ['configs/errors/FNO.yaml', 'configs/errors/CAPE_FNO2.yaml', 'configs/errors/DON.yaml']
+🔍 Running error analysis for all models...
+🔍 Analyzing FNO model for CC current profile...
+📂 Loading dataset from data/dataset/FNO/Prada2013_CC_11000.npz
+📁 Using anode model for CC: models/FNO/anode_Prada2013_CC_11000_2026-06-03_23-32-52.msgpack
+📁 Using cathode model for CC: models/FNO/cathode_Prada2013_CC_11000_2026-06-03_23-41-52.msgpack
+    ▶ FNO anode shapes (pred/true): (560, 20, 75) / (560, 20, 75)
+    ▶ FNO cathode shapes (pred/true): (560, 20, 75) / (560, 20, 75)
+✅ Analysis complete for FNO on CC
+🔍 Analyzing FNO model for Triangle current profile...
+📂 Loading dataset from data/dataset/FNO/Prada2013_Triangle_11000.npz
+📁 Using anode model for Triangle: models/FNO/anode_Prada2013_Triangle_11000_2026-06-04_00-08-47.msgpack
+📁 Using cathode model for Triangle: models/FNO/cathode_Prada2013_Triangle_11000_2026-06-04_00-17-46.msgpack
+    ▶ FNO anode shapes (pred/true): (830, 20, 75) / (830, 20, 75)
+    ▶ FNO cathode shapes (pred/true): (830, 20, 75) / (830, 20, 75)
+✅ Analysis complete for FNO on Triangle
+🔍 Analyzing FNO model for PLS current profile...
+📂 Loading dataset from data/dataset/FNO/Prada2013_PLS_11000.npz
+📁 Using anode model for PLS: models/FNO/anode_Prada2013_PLS_11000_2026-06-03_23-50-54.msgpack
+📁 Using cathode model for PLS: models/FNO/cathode_Prada2013_PLS_11000_2026-06-03_23-59-48.msgpack
+    ▶ FNO anode shapes (pred/true): (621, 20, 75) / (621, 20, 75)
+    ▶ FNO cathode shapes (pred/true): (621, 20, 75) / (621, 20, 75)
+✅ Analysis complete for FNO on PLS
+🔍 Analyzing FNO model for GRF current profile...
+📂 Loading dataset from data/dataset/FNO/Prada2013_GRF_11000.npz
+📁 Using anode model for GRF: models/FNO/anode_Prada2013_GRF_11000_2026-06-04_00-26-47.msgpack
+📁 Using cathode model for GRF: models/FNO/cathode_Prada2013_GRF_11000_2026-06-04_00-35-48.msgpack
+    ▶ FNO anode shapes (pred/true): (432, 20, 75) / (432, 20, 75)
+    ▶ FNO cathode shapes (pred/true): (432, 20, 75) / (432, 20, 75)
+✅ Analysis complete for FNO on GRF
+🔍 Analyzing PE-FNO model for CC current profile...
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_CC_33011.npz
+📁 Using anode model for CC: models/PE-FNO/anode_Prada2013_CC_33011_2026-06-04_09-42-18.msgpack
+📁 Using cathode model for CC: models/PE-FNO/cathode_Prada2013_CC_33011_2026-06-04_10-20-49.msgpack
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_CC_33011.npz
+    🔄 Processing 1236 samples in batches of 256...
+      ✓ Processed batch 1/5
+      ✓ Processed batch 2/5
+      ✓ Processed batch 3/5
+      ✓ Processed batch 4/5
+      ✓ Processed batch 5/5
+    ▶ CAPE_FNO2 anode shapes (pred/true): (1236, 20, 75) / (1236, 20, 75)
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_CC_33011.npz
+    🔄 Processing 1236 samples in batches of 256...
+      ✓ Processed batch 1/5
+      ✓ Processed batch 2/5
+      ✓ Processed batch 3/5
+      ✓ Processed batch 4/5
+      ✓ Processed batch 5/5
+    ▶ CAPE_FNO2 cathode shapes (pred/true): (1236, 20, 75) / (1236, 20, 75)
+✅ Analysis complete for PE-FNO on CC
+🔍 Analyzing PE-FNO model for Triangle current profile...
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_Triangle_33011.npz
+📁 Using anode model for Triangle: models/PE-FNO/anode_Prada2013_Triangle_33011_2026-06-04_13-28-53.msgpack
+📁 Using cathode model for Triangle: models/PE-FNO/cathode_Prada2013_Triangle_33011_2026-06-04_14-06-55.msgpack
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_Triangle_33011.npz
+    🔄 Processing 2100 samples in batches of 256...
+      ✓ Processed batch 1/9
+      ✓ Processed batch 2/9
+      ✓ Processed batch 3/9
+      ✓ Processed batch 4/9
+      ✓ Processed batch 5/9
+      ✓ Processed batch 6/9
+      ✓ Processed batch 7/9
+      ✓ Processed batch 8/9
+      ✓ Processed batch 9/9
+    ▶ CAPE_FNO2 anode shapes (pred/true): (2100, 20, 75) / (2100, 20, 75)
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_Triangle_33011.npz
+    🔄 Processing 2100 samples in batches of 256...
+      ✓ Processed batch 1/9
+      ✓ Processed batch 2/9
+      ✓ Processed batch 3/9
+      ✓ Processed batch 4/9
+      ✓ Processed batch 5/9
+      ✓ Processed batch 6/9
+      ✓ Processed batch 7/9
+      ✓ Processed batch 8/9
+      ✓ Processed batch 9/9
+    ▶ CAPE_FNO2 cathode shapes (pred/true): (2100, 20, 75) / (2100, 20, 75)
+✅ Analysis complete for PE-FNO on Triangle
+🔍 Analyzing PE-FNO model for PLS current profile...
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_PLS_33011.npz
+📁 Using anode model for PLS: models/PE-FNO/anode_Prada2013_PLS_33011_2026-06-04_10-59-16.msgpack
+📁 Using cathode model for PLS: models/PE-FNO/cathode_Prada2013_PLS_33011_2026-06-04_11-36-20.msgpack
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_PLS_33011.npz
+    🔄 Processing 1481 samples in batches of 256...
+      ✓ Processed batch 1/6
+      ✓ Processed batch 2/6
+      ✓ Processed batch 3/6
+      ✓ Processed batch 4/6
+      ✓ Processed batch 5/6
+      ✓ Processed batch 6/6
+    ▶ CAPE_FNO2 anode shapes (pred/true): (1481, 20, 75) / (1481, 20, 75)
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_PLS_33011.npz
+    🔄 Processing 1481 samples in batches of 256...
+      ✓ Processed batch 1/6
+      ✓ Processed batch 2/6
+      ✓ Processed batch 3/6
+      ✓ Processed batch 4/6
+      ✓ Processed batch 5/6
+      ✓ Processed batch 6/6
+    ▶ CAPE_FNO2 cathode shapes (pred/true): (1481, 20, 75) / (1481, 20, 75)
+✅ Analysis complete for PE-FNO on PLS
+🔍 Analyzing PE-FNO model for GRF current profile...
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_GRF_33011.npz
+📁 Using anode model for GRF: models/PE-FNO/anode_Prada2013_GRF_33011_2026-06-04_12-13-54.msgpack
+📁 Using cathode model for GRF: models/PE-FNO/cathode_Prada2013_GRF_33011_2026-06-04_12-50-52.msgpack
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_GRF_33011.npz
+    🔄 Processing 657 samples in batches of 256...
+      ✓ Processed batch 1/3
+      ✓ Processed batch 2/3
+      ✓ Processed batch 3/3
+    ▶ CAPE_FNO2 anode shapes (pred/true): (657, 20, 75) / (657, 20, 75)
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_GRF_33011.npz
+    🔄 Processing 657 samples in batches of 256...
+      ✓ Processed batch 1/3
+      ✓ Processed batch 2/3
+      ✓ Processed batch 3/3
+    ▶ CAPE_FNO2 cathode shapes (pred/true): (657, 20, 75) / (657, 20, 75)
+✅ Analysis complete for PE-FNO on GRF
+🔍 Analyzing DON model for CC current profile...
+📂 Loading dataset from data/dataset/DeepONet/Prada2013_CC_2200.npz
+📁 Using anode model for CC: models/DON/anode_Prada2013_CC_2200_2026-06-04_14-11-10.msgpack
+📁 Using cathode model for CC: models/DON/cathode_Prada2013_CC_2200_2026-06-04_14-12-36.msgpack
+    ▶ DON anode shapes (pred/true): (96, 20, 75) / (96, 20, 75)
+    ▶ DON cathode shapes (pred/true): (96, 20, 75) / (96, 20, 75)
+✅ Analysis complete for DON on CC
+🔍 Analyzing DON model for Triangle current profile...
+📂 Loading dataset from data/dataset/DeepONet/Prada2013_Triangle_2200.npz
+📁 Using anode model for Triangle: models/DON/anode_Prada2013_Triangle_2200_2026-06-04_14-19-36.msgpack
+📁 Using cathode model for Triangle: models/DON/cathode_Prada2013_Triangle_2200_2026-06-04_14-22-33.msgpack
+    ▶ DON anode shapes (pred/true): (217, 20, 75) / (217, 20, 75)
+    ▶ DON cathode shapes (pred/true): (217, 20, 75) / (217, 20, 75)
+✅ Analysis complete for DON on Triangle
+🔍 Analyzing DON model for PLS current profile...
+📂 Loading dataset from data/dataset/DeepONet/Prada2013_PLS_2200.npz
+📁 Using anode model for PLS: models/DON/anode_Prada2013_PLS_2200_2026-06-04_14-14-42.msgpack
+📁 Using cathode model for PLS: models/DON/cathode_Prada2013_PLS_2200_2026-06-04_14-16-39.msgpack
+    ▶ DON anode shapes (pred/true): (139, 20, 75) / (139, 20, 75)
+    ▶ DON cathode shapes (pred/true): (139, 20, 75) / (139, 20, 75)
+✅ Analysis complete for DON on PLS
+🔍 Analyzing DON model for GRF current profile.../mnt/d/SCNU/lab/spm_neuraloperator/src/plotter/metrics_comparison_plotter.py:84: UserWarning: The figure layout has changed to tight
+  fig.tight_layout()
+/mnt/d/SCNU/lab/spm_neuraloperator/src/plotter/metrics_comparison_plotter.py:193: UserWarning: The figure layout has changed to tight
+  fig.tight_layout()
+
+📂 Loading dataset from data/dataset/DeepONet/Prada2013_GRF_2200.npz
+📁 Using anode model for GRF: models/DON/anode_Prada2013_GRF_2200_2026-06-04_14-24-18.msgpack
+📁 Using cathode model for GRF: models/DON/cathode_Prada2013_GRF_2200_2026-06-04_14-25-53.msgpack
+    ▶ DON anode shapes (pred/true): (107, 20, 75) / (107, 20, 75)
+    ▶ DON cathode shapes (pred/true): (107, 20, 75) / (107, 20, 75)
+✅ Analysis complete for DON on GRF
+
+📈 Creating metrics comparison plots...
+📊 Creating metrics comparison plots...
+📈 Saved plot to plots/metrics_comparison/concentration_error_metrics_comparison.png
+📈 Saved plot to plots/metrics_comparison/voltage_error_metrics_comparison.png
+📈 All metrics comparison plots saved to plots/metrics_comparison
+
+📊 Summary of analyzed models:
+  FNO:
+    CC: Conc nL2: 0.06%, Volt RMSE: 2.08 mV
+    Triangle: Conc nL2: 0.05%, Volt RMSE: 2.48 mV
+    PLS: Conc nL2: 0.18%, Volt RMSE: 6.28 mV
+    GRF: Conc nL2: 0.14%, Volt RMSE: 9.46 mV
+  PE-FNO:
+    CC: Conc nL2: 0.14%, Volt RMSE: 6.12 mV
+    Triangle: Conc nL2: 0.11%, Volt RMSE: 7.38 mV
+    PLS: Conc nL2: 0.28%, Volt RMSE: 9.25 mV
+    GRF: Conc nL2: 0.29%, Volt RMSE: 14.59 mV
+  DON:
+    CC: Conc nL2: 0.80%, Volt RMSE: 34.63 mV
+    Triangle: Conc nL2: 3.35%, Volt RMSE: 95.82 mV
+    PLS: Conc nL2: 2.60%, Volt RMSE: 40.98 mV
+    GRF: Conc nL2: 13.22%, Volt RMSE: 126.86 mV
+
+✅ Metrics comparison plots created successfully!
+📁 Plots saved to: plots/metrics_comparison

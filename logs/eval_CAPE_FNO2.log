@@ -1,0 +1,195 @@
+2026-06-04 15:02:00.014534: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+2026-06-04 15:02:08.553345: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+2026-06-04 15:02:10.501702: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+2026-06-04 15:03:13.244452: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+2026-06-04 15:03:15.345624: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+2026-06-04 15:04:25.472539: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+2026-06-04 15:04:27.525944: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+2026-06-04 15:05:24.598154: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+2026-06-04 15:05:26.711976: W external/xla/xla/service/gpu/autotuning/dot_search_space.cc:200] All configs were filtered out because none of them sufficiently match the hints. Maybe the hints set does not contain a good representative set of valid configs?Working around this by using the full hints set instead.
+🔧 Loading configuration from configs/errors/CAPE_FNO2.yaml
+🔍 Analyzing PE-FNO model for ['CC', 'Triangle', 'PLS', 'GRF'] current profiles...
+📊 Running separate analysis for each profile to match trained models with corresponding datasets...
+
+🔬 Analyzing profile: CC
+🔍 Analyzing PE-FNO model for CC current profile...
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_CC_33011.npz
+📁 Using anode model for CC: models/PE-FNO/anode_Prada2013_CC_33011_2026-06-04_09-42-18.msgpack
+📁 Using cathode model for CC: models/PE-FNO/cathode_Prada2013_CC_33011_2026-06-04_10-20-49.msgpack
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_CC_33011.npz
+    🔄 Processing 1236 samples in batches of 256...
+      ✓ Processed batch 1/5
+      ✓ Processed batch 2/5
+      ✓ Processed batch 3/5
+      ✓ Processed batch 4/5
+      ✓ Processed batch 5/5
+    ▶ CAPE_FNO2 anode shapes (pred/true): (1236, 20, 75) / (1236, 20, 75)
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_CC_33011.npz
+    🔄 Processing 1236 samples in batches of 256...
+      ✓ Processed batch 1/5
+      ✓ Processed batch 2/5
+      ✓ Processed batch 3/5
+      ✓ Processed batch 4/5
+      ✓ Processed batch 5/5
+    ▶ CAPE_FNO2 cathode shapes (pred/true): (1236, 20, 75) / (1236, 20, 75)
+✅ Analysis complete for PE-FNO on CC
+
+🔬 Analyzing profile: Triangle
+🔍 Analyzing PE-FNO model for Triangle current profile...
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_Triangle_33011.npz
+📁 Using anode model for Triangle: models/PE-FNO/anode_Prada2013_Triangle_33011_2026-06-04_13-28-53.msgpack
+📁 Using cathode model for Triangle: models/PE-FNO/cathode_Prada2013_Triangle_33011_2026-06-04_14-06-55.msgpack
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_Triangle_33011.npz
+    🔄 Processing 2100 samples in batches of 256...
+      ✓ Processed batch 1/9
+      ✓ Processed batch 2/9
+      ✓ Processed batch 3/9
+      ✓ Processed batch 4/9
+      ✓ Processed batch 5/9
+      ✓ Processed batch 6/9
+      ✓ Processed batch 7/9
+      ✓ Processed batch 8/9
+      ✓ Processed batch 9/9
+    ▶ CAPE_FNO2 anode shapes (pred/true): (2100, 20, 75) / (2100, 20, 75)
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_Triangle_33011.npz
+    🔄 Processing 2100 samples in batches of 256...
+      ✓ Processed batch 1/9
+      ✓ Processed batch 2/9
+      ✓ Processed batch 3/9
+      ✓ Processed batch 4/9
+      ✓ Processed batch 5/9
+      ✓ Processed batch 6/9
+      ✓ Processed batch 7/9
+      ✓ Processed batch 8/9
+      ✓ Processed batch 9/9
+    ▶ CAPE_FNO2 cathode shapes (pred/true): (2100, 20, 75) / (2100, 20, 75)
+✅ Analysis complete for PE-FNO on Triangle
+
+🔬 Analyzing profile: PLS
+🔍 Analyzing PE-FNO model for PLS current profile...
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_PLS_33011.npz
+📁 Using anode model for PLS: models/PE-FNO/anode_Prada2013_PLS_33011_2026-06-04_10-59-16.msgpack
+📁 Using cathode model for PLS: models/PE-FNO/cathode_Prada2013_PLS_33011_2026-06-04_11-36-20.msgpack
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_PLS_33011.npz
+    🔄 Processing 1481 samples in batches of 256...
+      ✓ Processed batch 1/6
+      ✓ Processed batch 2/6
+      ✓ Processed batch 3/6
+      ✓ Processed batch 4/6
+      ✓ Processed batch 5/6
+      ✓ Processed batch 6/6
+    ▶ CAPE_FNO2 anode shapes (pred/true): (1481, 20, 75) / (1481, 20, 75)
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_PLS_33011.npz
+    🔄 Processing 1481 samples in batches of 256...
+      ✓ Processed batch 1/6
+      ✓ Processed batch 2/6
+      ✓ Processed batch 3/6
+      ✓ Processed batch 4/6
+      ✓ Processed batch 5/6
+      ✓ Processed batch 6/6
+    ▶ CAPE_FNO2 cathode shapes (pred/true): (1481, 20, 75) / (1481, 20, 75)
+✅ Analysis complete for PE-FNO on PLS
+
+🔬 Analyzing profile: GRF
+🔍 Analyzing PE-FNO model for GRF current profile...
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_GRF_33011.npz
+📁 Using anode model for GRF: models/PE-FNO/anode_Prada2013_GRF_33011_2026-06-04_12-13-54.msgpack
+📁 Using cathode model for GRF: models/PE-FNO/cathode_Prada2013_GRF_33011_2026-06-04_12-50-52.msgpack
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_GRF_33011.npz
+    🔄 Processing 657 samples in batches of 256...
+      ✓ Processed batch 1/3
+      ✓ Processed batch 2/3
+      ✓ Processed batch 3/3
+    ▶ CAPE_FNO2 anode shapes (pred/true): (657, 20, 75) / (657, 20, 75)
+📂 Loading dataset from data/dataset/FNO-Cape/Prada2013_GRF_33011.npz
+    🔄 Processing 657 samples in batches of 256...
+      ✓ Processed batch 1/3
+      ✓ Processed batch 2/3
+      ✓ Processed batch 3/3
+    ▶ CAPE_FNO2 cathode shapes (pred/true): (657, 20, 75) / (657, 20, 75)
+✅ Analysis complete for PE-FNO on GRF
+
+📊 Error Summary for PE-FNO - Profile-by-Profile Analysis:
+======================================================================
+
+🔬 CC Current Profile:
+--------------------------------------------------
+
+🧪 Concentration Errors (Normalized):
+  MAE:       0.000459
+  RMSE:      0.000647
+  Rel L2:    0.136%
+  Rel L∞:    0.273%
+
+⚡ Voltage Errors:
+  MAE:       1.119 mV
+  RMSE:      6.146 mV
+  Rel L2:    0.087%
+  Rel L∞:    0.446%
+--------------------------------------------------
+
+🔬 Triangle Current Profile:
+--------------------------------------------------
+
+🧪 Concentration Errors (Normalized):
+  MAE:       0.000377
+  RMSE:      0.000538
+  Rel L2:    0.114%
+  Rel L∞:    0.227%
+
+⚡ Voltage Errors:
+  MAE:       1.439 mV
+  RMSE:      7.388 mV
+  Rel L2:    0.103%
+  Rel L∞:    0.433%
+--------------------------------------------------
+
+🔬 PLS Current Profile:
+--------------------------------------------------
+
+🧪 Concentration Errors (Normalized):
+  MAE:       0.000892
+  RMSE:      0.001275
+  Rel L2:    0.283%
+  Rel L∞:    0.573%
+
+⚡ Voltage Errors:
+  MAE:       1.725 mV
+  RMSE:      9.277 mV
+  Rel L2:    0.142%
+  Rel L∞:    0.838%
+--------------------------------------------------
+
+🔬 GRF Current Profile:
+--------------------------------------------------
+
+🧪 Concentration Errors (Normalized):
+  MAE:       0.001054
+  RMSE:      0.001427
+  Rel L2:    0.286%
+  Rel L∞:    0.545%
+
+⚡ Voltage Errors:
+  MAE:       2.500 mV
+  RMSE:      14.415 mV
+  Rel L2:    0.215%
+  Rel L∞:    1.112%
+--------------------------------------------------
+
+📊 Combined Summary for PE-FNO (All Profiles):
+==================================================
+
+🧪 Concentration Errors (Normalized):
+  MAE:       0.000616
+  RMSE:      0.000943
+  Rel L2:    0.185%
+  Rel L∞:    0.369%
+
+⚡ Voltage Errors:
+  MAE:       1.571 mV
+  RMSE:      8.814 mV
+  Rel L2:    0.123%
+  Rel L∞:    0.627%
+======================================================================
+
+✅ Error analysis complete!

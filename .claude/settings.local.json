@@ -3,7 +3,8 @@
     "allow": [
       "Bash(git add *)",
       "Bash(git commit -m 'chore: update remote, gitignore \\(.venv/data/demo\\), and sync workspace changes *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(python3 -c \"import numpy as np; print\\('Approx memory per simulation \\(200 time points, 100 nodes, 3 fields\\):', 200*100*3*8/1024/1024, 'MB'\\)\")"
     ]
   }
 }
